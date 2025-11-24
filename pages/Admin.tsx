@@ -9,6 +9,22 @@ interface AdminProps {
 
 type Tab = 'home' | 'about' | 'services' | 'blog' | 'contact';
 
+const AccordionSection = ({ title, children, defaultOpen = false }: { title: string, children?: React.ReactNode, defaultOpen?: boolean }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <div className="border border-earth-200 rounded-lg bg-white overflow-hidden mb-4 shadow-sm">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-6 py-4 flex justify-between items-center bg-earth-50 hover:bg-earth-100 transition-colors"
+      >
+        <span className="font-bold text-brand-900">{title}</span>
+        {isOpen ? <ChevronUp className="w-5 h-5 text-earth-500" /> : <ChevronDown className="w-5 h-5 text-earth-500" />}
+      </button>
+      {isOpen && <div className="p-6 border-t border-earth-200">{children}</div>}
+    </div>
+  );
+};
+
 export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
   const { data, updateData, resetData } = useData();
   const [activeTab, setActiveTab] = useState<Tab>('home');
@@ -25,6 +41,24 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
       setIsAuthenticated(true);
     } else {
       alert('Invalid credentials (Try admin/admin)');
+    }
+  };
+
+  const addService = () => {
+    const newService: Service = {
+      id: Date.now(),
+      title: "New Service",
+      description: "Description of the new service...",
+      details: "Detailed description goes here...",
+      price: "$0.00",
+      iconName: "Sprout"
+    };
+    updateData({ servicesPage: { ...data.servicesPage, items: [...data.servicesPage.items, newService] } });
+  };
+
+  const deleteService = (id: number) => {
+    if (confirm('Are you sure you want to delete this service?')) {
+      updateData({ servicesPage: { ...data.servicesPage, items: data.servicesPage.items.filter(s => s.id !== id) } });
     }
   };
 
@@ -91,21 +125,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
   }
 
   // --- Helpers ---
-  const AccordionSection = ({ title, children, defaultOpen = false }: { title: string, children: React.ReactNode, defaultOpen?: boolean }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-    return (
-      <div className="border border-earth-200 rounded-lg bg-white overflow-hidden mb-4 shadow-sm">
-        <button 
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-6 py-4 flex justify-between items-center bg-earth-50 hover:bg-earth-100 transition-colors"
-        >
-          <span className="font-bold text-brand-900">{title}</span>
-          {isOpen ? <ChevronUp className="w-5 h-5 text-earth-500" /> : <ChevronDown className="w-5 h-5 text-earth-500" />}
-        </button>
-        {isOpen && <div className="p-6 border-t border-earth-200">{children}</div>}
-      </div>
-    );
-  };
+  // AccordionSection moved to module scope
 
   // --- Blog Logic ---
   const startEditingPost = (post: BlogPost) => {
@@ -624,20 +644,37 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
              {activeTab === 'services' && (
                <div className="space-y-6">
                  <AccordionSection title="Service Items" defaultOpen>
+                    <div className="flex justify-end mb-4">
+                      <button onClick={addService} className="text-sm bg-brand-600 text-white px-3 py-2 rounded flex items-center hover:bg-brand-700 transition-colors">
+                        <Plus className="w-4 h-4 mr-1" /> Add Service
+                      </button>
+                    </div>
                     <div className="grid gap-4">
                        {data.servicesPage.items.map((service, i) => (
-                         <div key={service.id} className="bg-white p-4 rounded border border-earth-200 shadow-sm">
-                           <div className="flex justify-between mb-2">
-                             <input className="font-bold text-brand-900 border-b border-transparent focus:border-brand-500 outline-none" value={service.title} onChange={(e) => {
+                         <div key={service.id} className="bg-white p-4 rounded border border-earth-200 shadow-sm relative group">
+                           <button onClick={() => deleteService(service.id)} className="absolute top-2 right-2 text-earth-300 hover:text-red-500 p-1">
+                             <Trash2 className="w-4 h-4" />
+                           </button>
+                           <div className="flex justify-between mb-2 pr-8">
+                             <input className="font-bold text-brand-900 border-b border-transparent focus:border-brand-500 outline-none w-1/2" value={service.title} onChange={(e) => {
                                const items = [...data.servicesPage.items]; items[i].title = e.target.value; updateData({ servicesPage: { ...data.servicesPage, items } });
-                             }} />
-                             <input className="text-right font-mono text-brand-600 border-b border-transparent focus:border-brand-500 outline-none" value={service.price} onChange={(e) => {
+                             }} placeholder="Service Title" />
+                             <input className="text-right font-mono text-brand-600 border-b border-transparent focus:border-brand-500 outline-none w-1/3" value={service.price} onChange={(e) => {
                                const items = [...data.servicesPage.items]; items[i].price = e.target.value; updateData({ servicesPage: { ...data.servicesPage, items } });
-                             }} />
+                             }} placeholder="Price" />
                            </div>
-                           <textarea className="w-full text-sm text-earth-600 border border-transparent focus:border-earth-300 rounded p-1" rows={2} value={service.description} onChange={(e) => {
-                               const items = [...data.servicesPage.items]; items[i].description = e.target.value; updateData({ servicesPage: { ...data.servicesPage, items } });
-                           }} />
+                           <div className="space-y-2">
+                             <textarea className="w-full text-sm text-earth-600 border border-transparent focus:border-earth-300 rounded p-1" rows={2} value={service.description} onChange={(e) => {
+                                 const items = [...data.servicesPage.items]; items[i].description = e.target.value; updateData({ servicesPage: { ...data.servicesPage, items } });
+                             }} placeholder="Short Summary (visible on card)" />
+                             
+                             <div className="pt-2 border-t border-earth-100">
+                               <label className="text-xs text-earth-400 font-bold uppercase">Full Detail View</label>
+                               <textarea className="w-full text-sm text-earth-800 border border-transparent focus:border-earth-300 rounded p-1" rows={3} value={service.details || ''} onChange={(e) => {
+                                   const items = [...data.servicesPage.items]; items[i].details = e.target.value; updateData({ servicesPage: { ...data.servicesPage, items } });
+                               }} placeholder="Long description shown in popup..." />
+                             </div>
+                           </div>
                          </div>
                        ))}
                     </div>
@@ -658,6 +695,12 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                     <div><label className="block text-sm font-bold text-earth-700 mb-1">Phone</label><input className="w-full px-4 py-2 border border-earth-300 rounded-lg" value={data.contact.phone} onChange={(e) => updateData({ contact: { ...data.contact, phone: e.target.value } })} /></div>
                     <div><label className="block text-sm font-bold text-earth-700 mb-1">Address</label><input className="w-full px-4 py-2 border border-earth-300 rounded-lg" value={data.contact.address} onChange={(e) => updateData({ contact: { ...data.contact, address: e.target.value } })} /></div>
                     <div><label className="block text-sm font-bold text-earth-700 mb-1">City/State</label><input className="w-full px-4 py-2 border border-earth-300 rounded-lg" value={data.contact.city} onChange={(e) => updateData({ contact: { ...data.contact, city: e.target.value } })} /></div>
+                    
+                    <div className="pt-4 border-t border-earth-100">
+                      <label className="block text-sm font-bold text-earth-700 mb-1">Google Maps Embed URL</label>
+                      <input className="w-full px-4 py-2 border border-earth-300 rounded-lg text-sm" value={data.contact.mapUrl} onChange={(e) => updateData({ contact: { ...data.contact, mapUrl: e.target.value } })} />
+                      <p className="text-xs text-earth-500 mt-1">Go to Google Maps -&gt; Share -&gt; Embed a map -&gt; Copy HTML -&gt; Extract the "src" URL only.</p>
+                    </div>
                   </div>
                </div>
              )}

@@ -69,18 +69,18 @@ export const Contact: React.FC = () => {
               </div>
             </div>
 
-            {/* Map Placeholder */}
-            <div className="mt-10 h-64 bg-earth-200 rounded-xl overflow-hidden relative">
-              <img 
-                src="https://picsum.photos/id/10/800/400" 
-                alt="Map location" 
-                className="w-full h-full object-cover opacity-80"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <span className="bg-white/90 px-4 py-2 rounded-md shadow-md font-medium text-brand-900">
-                  Interactive Map Loading...
-                </span>
-              </div>
+            {/* Google Map */}
+            <div className="mt-10 h-80 bg-earth-100 rounded-xl overflow-hidden border border-earth-200 shadow-sm">
+               <iframe 
+                src={contact.mapUrl} 
+                width="100%" 
+                height="100%" 
+                style={{ border: 0 }} 
+                allowFullScreen={true} 
+                loading="lazy" 
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Mothercrop Location"
+              ></iframe>
             </div>
           </div>
 

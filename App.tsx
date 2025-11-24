@@ -24,7 +24,7 @@ const App: React.FC = () => {
       case Page.ABOUT:
         return <About />;
       case Page.SERVICES:
-        return <Services />;
+        return <Services onNavigate={setCurrentPage} />;
       case Page.BLOG:
         return <Blog />;
       case Page.CONTACT:

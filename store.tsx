@@ -81,6 +81,7 @@ const defaultData: SiteData = {
         id: 1,
         title: "Weekly Veggie Box",
         description: "A curated selection of the week's freshest harvest delivered to your door. Includes 8-10 varieties of seasonal vegetables and herbs.",
+        details: "Our signature Veggie Box is the easiest way to eat seasonally. Every week, our farmers hand-select the peak harvest.\n\nWhat's typically inside:\n- Leafy Greens (Kale, Spinach, Chard)\n- Root Vegetables (Carrots, Beets, Radishes)\n- Seasonal Fruit (Strawberries, Tomatoes, Apples)\n- Fresh Herbs\n\nAll produce is harvested within 24 hours of delivery to ensure maximum nutrient density and flavor.",
         iconName: "ShoppingBasket",
         price: "$35 / week"
       },
@@ -88,6 +89,7 @@ const defaultData: SiteData = {
         id: 2,
         title: "Garden Consulting",
         description: "Want to grow your own? Our experts visit your home to analyze your soil, sunlight, and space to design your perfect organic garden.",
+        details: "Turn your backyard into a food forest with our expert guidance. \n\nOur consultation includes:\n1. Soil pH and composition testing\n2. Sunlight analysis\n3. Crop planning based on your taste\n4. Irrigation system recommendations\n\nWe also offer follow-up visits to help with planting and maintenance.",
         iconName: "Sprout",
         price: "$150 / visit"
       },
@@ -95,6 +97,7 @@ const defaultData: SiteData = {
         id: 3,
         title: "Educational Workshops",
         description: "Weekend classes on composting, regenerative farming, and canning/preserving. Perfect for schools and curious individuals.",
+        details: "Join us at the farm for hands-on learning. We believe in sharing knowledge to build a more sustainable future.\n\nUpcoming Topics:\n- Composting 101: Turning waste into gold\n- Winter Gardening\n- Fermentation and Canning\n- Permaculture Basics\n\nClasses run every Saturday from 10am to 12pm. Tools and materials provided.",
         iconName: "GraduationCap",
         price: "$45 / person"
       }
@@ -169,7 +172,8 @@ const defaultData: SiteData = {
     city: "Green Valley, CA 90210",
     email: "hello@mothercrop.com",
     phone: "+1 (555) 123-4567",
-    hours: "Mon-Fri, 9am - 5pm"
+    hours: "Mon-Fri, 9am - 5pm",
+    mapUrl: "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3153.0192361667086!2d-122.40618848468202!3d37.78868697975704!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x8085808b29c0c0d3%3A0x4a501367f076adff!2sSan%20Francisco%2C%20CA!5e0!3m2!1sen!2sus!4v1612345678901!5m2!1sen!2sus"
   }
 };
 
@@ -201,7 +205,25 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 status: p.status || 'published'
             })) : defaultData.blog;
 
-            return { ...defaultData, ...parsed, blog: mergedBlog };
+            // Merge services to include details if missing
+            const mergedServices = parsed.servicesPage ? {
+                ...parsed.servicesPage,
+                items: parsed.servicesPage.items.map((item: any, idx: number) => ({
+                    ...item,
+                    details: item.details || defaultData.servicesPage.items[idx]?.details || ''
+                }))
+            } : defaultData.servicesPage;
+
+            // Merge contact to include mapUrl if missing
+            const mergedContact = { ...defaultData.contact, ...parsed.contact };
+
+            return { 
+                ...defaultData, 
+                ...parsed, 
+                blog: mergedBlog, 
+                contact: mergedContact,
+                servicesPage: mergedServices
+            };
         });
       } catch (e) {
         console.error("Failed to parse saved data", e);

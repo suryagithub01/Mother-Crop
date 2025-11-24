@@ -24,6 +24,7 @@ export interface Service {
   id: number;
   title: string;
   description: string;
+  details?: string; // Extended description for the Learn More modal
   iconName: string;
   price?: string;
 }
@@ -85,6 +86,7 @@ export interface ContactData {
   email: string;
   phone: string;
   hours: string;
+  mapUrl: string;
 }
 
 export interface SiteData {

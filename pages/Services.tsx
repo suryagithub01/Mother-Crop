@@ -1,10 +1,16 @@
-import React from 'react';
-import { ShoppingBasket, Sprout, GraduationCap, CheckCircle, Leaf, Truck } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShoppingBasket, Sprout, GraduationCap, CheckCircle, Leaf, Truck, X, ArrowRight } from 'lucide-react';
 import { useData } from '../store';
+import { Service, Page } from '../types';
 
-export const Services: React.FC = () => {
+interface ServicesProps {
+  onNavigate: (page: Page) => void;
+}
+
+export const Services: React.FC<ServicesProps> = ({ onNavigate }) => {
   const { data } = useData();
   const { servicesPage } = data;
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
 
   const getIcon = (iconName: string) => {
     switch(iconName) {
@@ -18,7 +24,7 @@ export const Services: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-earth-100">
+    <div className="min-h-screen bg-earth-100 relative">
       <div className="bg-brand-800 py-16">
          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl font-serif font-bold text-white mb-4">{servicesPage.heroTitle}</h1>
@@ -40,7 +46,10 @@ export const Services: React.FC = () => {
                 <p className="text-earth-600 mb-6 flex-1">{service.description}</p>
                 <div className="border-t border-earth-100 pt-6 flex justify-between items-center">
                   <span className="text-xl font-bold text-brand-700">{service.price}</span>
-                  <button className="px-4 py-2 bg-earth-100 text-brand-800 rounded-md font-medium hover:bg-brand-50 hover:text-brand-700 transition-colors">
+                  <button 
+                    onClick={() => setSelectedService(service)}
+                    className="px-4 py-2 bg-earth-100 text-brand-800 rounded-md font-medium hover:bg-brand-50 hover:text-brand-700 transition-colors"
+                  >
                     Learn More
                   </button>
                 </div>
@@ -74,13 +83,65 @@ export const Services: React.FC = () => {
                    </div>
                  ))}
                </div>
-               <button className="mt-8 px-8 py-3 bg-brand-600 text-white rounded-md font-bold hover:bg-brand-700 transition-colors shadow-lg shadow-brand-500/30">
-                 Join Membership
+               <button 
+                onClick={() => onNavigate(Page.CONTACT)}
+                className="mt-8 px-8 py-3 bg-brand-600 text-white rounded-md font-bold hover:bg-brand-700 transition-colors shadow-lg shadow-brand-500/30 flex items-center"
+               >
+                 Join Membership <ArrowRight className="ml-2 w-4 h-4" />
                </button>
              </div>
            </div>
          </div>
       </section>
+
+      {/* Service Detail Modal */}
+      {selectedService && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto" role="dialog" aria-modal="true">
+           <div className="min-h-screen px-4 flex items-center justify-center text-center">
+              {/* Backdrop */}
+              <div 
+                className="fixed inset-0 bg-brand-900/60 backdrop-blur-sm transition-opacity" 
+                onClick={() => setSelectedService(null)}
+              ></div>
+
+              {/* Modal Content */}
+              <div className="inline-block w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden text-left align-middle transition-all transform relative">
+                 <button 
+                  onClick={() => setSelectedService(null)}
+                  className="absolute top-4 right-4 z-10 p-2 bg-white/80 hover:bg-white text-earth-500 hover:text-earth-900 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+
+                <div className="bg-brand-600 p-8 flex flex-col items-center justify-center text-white">
+                   <div className="bg-white/20 p-4 rounded-full mb-4">
+                      {getIcon(selectedService.iconName)}
+                   </div>
+                   <h2 className="text-3xl font-serif font-bold text-center">{selectedService.title}</h2>
+                   <p className="mt-2 text-brand-100 font-medium">{selectedService.price}</p>
+                </div>
+                
+                <div className="p-8">
+                   <div className="prose prose-earth prose-lg max-w-none text-earth-800 whitespace-pre-line leading-relaxed">
+                     {selectedService.details || selectedService.description}
+                   </div>
+
+                   <div className="mt-8 pt-8 border-t border-earth-100 flex justify-center">
+                      <button 
+                        onClick={() => {
+                          setSelectedService(null);
+                          onNavigate(Page.CONTACT);
+                        }}
+                        className="px-8 py-3 bg-brand-600 text-white rounded-lg font-bold hover:bg-brand-700 transition-colors shadow-md"
+                      >
+                        Inquire Now
+                      </button>
+                   </div>
+                </div>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
