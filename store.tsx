@@ -1,8 +1,34 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SiteData } from './types';
+import { SiteData, ChatMessage, SoilAnalysisResult, SoilAnalysisRecord } from './types';
 
 // Default Hardcoded Data (Initial State)
 const defaultData: SiteData = {
+  users: [
+    { id: 1, username: 'admin', password: 'admin', role: 'admin' },
+    { id: 2, username: 'manager', password: 'manager', role: 'manager' },
+    { id: 3, username: 'editor', password: 'editor', role: 'editor' },
+  ],
+  trafficStats: {
+    HOME: 120,
+    ABOUT: 45,
+    SERVICES: 67,
+    BLOG: 89,
+    CONTACT: 34,
+    SOIL_ANALYSIS: 12,
+  },
+  chatHistory: [
+    {
+      id: 'demo-1',
+      date: '10/24/2023, 10:30 AM',
+      preview: 'Do you sell organic pumpkins?',
+      messages: [
+        { role: 'user', text: 'Do you sell organic pumpkins?', timestamp: '10:30 AM' },
+        { role: 'model', text: 'Yes, we have sugar pie pumpkins available in October!', timestamp: '10:30 AM' }
+      ]
+    }
+  ],
+  soilLabHistory: [],
   home: {
     heroTitle: "Cultivating Nature's Purest Potential",
     heroSubtitle: "Mothercrop connects you directly to the earth. 100% organic, sustainable, and delivered from our soil to your doorstep within 24 hours.",
@@ -97,7 +123,7 @@ const defaultData: SiteData = {
         id: 3,
         title: "Educational Workshops",
         description: "Weekend classes on composting, regenerative farming, and canning/preserving. Perfect for schools and curious individuals.",
-        details: "Join us at the farm for hands-on learning. We believe in sharing knowledge to build a more sustainable future.\n\nUpcoming Topics:\n- Composting 101: Turning waste into gold\n- Winter Gardening\n- Fermentation and Canning\n- Permaculture Basics\n\nClasses run every Saturday from 10am to 12pm. Tools and materials provided.",
+        details: "Join us at the farm for hands-on learning. We believe that sharing knowledge is key to a sustainable future.\n\nUpcoming Topics:\n- Composting 101: Turning waste into gold\n- Winter Gardening\n- Fermentation and Canning\n- Permaculture Basics\n\nClasses run every Saturday from 10am to 12pm. Tools and materials provided.",
         iconName: "GraduationCap",
         price: "$45 / person"
       }
@@ -181,6 +207,9 @@ interface DataContextType {
   data: SiteData;
   updateData: (newData: Partial<SiteData>) => void;
   resetData: () => void;
+  logPageVisit: (pageName: string) => void;
+  saveChatSession: (sessionId: string, messages: ChatMessage[]) => void;
+  saveSoilAnalysis: (result: SoilAnalysisResult) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -188,48 +217,82 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [data, setData] = useState<SiteData>(defaultData);
 
-  // Load from LocalStorage on mount
+  // Load from LocalStorage on mount and listen for external changes
   useEffect(() => {
-    const savedData = localStorage.getItem('mothercrop_data');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        // Merge with default to ensure new fields exist if local storage is old
-        setData(prev => {
-            // Helper to merge blog posts deeply to ensure SEO fields exist on old data
-            const mergedBlog = parsed.blog ? parsed.blog.map((p: any) => ({
-                ...p,
-                seo: p.seo || { metaTitle: p.title, metaDescription: p.excerpt, keywords: '' },
-                slug: p.slug || p.title.toLowerCase().replace(/ /g, '-'),
-                content: p.content || p.excerpt,
-                status: p.status || 'published'
-            })) : defaultData.blog;
-
-            // Merge services to include details if missing
-            const mergedServices = parsed.servicesPage ? {
-                ...parsed.servicesPage,
-                items: parsed.servicesPage.items.map((item: any, idx: number) => ({
-                    ...item,
-                    details: item.details || defaultData.servicesPage.items[idx]?.details || ''
-                }))
-            } : defaultData.servicesPage;
-
-            // Merge contact to include mapUrl if missing
-            const mergedContact = { ...defaultData.contact, ...parsed.contact };
-
-            return { 
-                ...defaultData, 
-                ...parsed, 
-                blog: mergedBlog, 
-                contact: mergedContact,
-                servicesPage: mergedServices
-            };
-        });
-      } catch (e) {
-        console.error("Failed to parse saved data", e);
+    // Initial Load
+    const loadData = () => {
+      const savedData = localStorage.getItem('mothercrop_data');
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          mergeAndSetData(parsed);
+        } catch (e) {
+          console.error("Failed to parse saved data", e);
+        }
       }
-    }
+    };
+
+    loadData();
+
+    // Cross-Tab Sync
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'mothercrop_data' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          mergeAndSetData(parsed);
+        } catch (e) {
+          console.error("Failed to sync data across tabs", e);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  const mergeAndSetData = (parsed: any) => {
+    setData(prev => {
+        // Helper to ensure arrays exist
+        const mergedUsers = Array.isArray(parsed.users) ? parsed.users : defaultData.users;
+        const mergedChatHistory = Array.isArray(parsed.chatHistory) ? parsed.chatHistory : defaultData.chatHistory;
+        const mergedTrafficStats = parsed.trafficStats || defaultData.trafficStats;
+        const mergedSoilHistory = Array.isArray(parsed.soilLabHistory) ? parsed.soilLabHistory : defaultData.soilLabHistory;
+
+        // Merge blog posts deeply
+        const mergedBlog = Array.isArray(parsed.blog) ? parsed.blog.map((p: any) => ({
+            ...p,
+            seo: p.seo || { metaTitle: p.title || '', metaDescription: p.excerpt || '', keywords: '' },
+            slug: p.slug || (p.title ? p.title.toLowerCase().replace(/ /g, '-') : 'post'),
+            content: p.content || p.excerpt || '',
+            status: p.status || 'published'
+        })) : defaultData.blog;
+
+         // Merge services to include details
+        const mergedServices = parsed.servicesPage ? {
+            ...parsed.servicesPage,
+            items: Array.isArray(parsed.servicesPage.items) 
+              ? parsed.servicesPage.items.map((item: any, idx: number) => ({
+                  ...item,
+                  details: item.details || defaultData.servicesPage.items[idx]?.details || ''
+                }))
+              : defaultData.servicesPage.items
+        } : defaultData.servicesPage;
+
+        const mergedContact = { ...defaultData.contact, ...(parsed.contact || {}) };
+
+        return { 
+            ...defaultData, 
+            ...parsed, 
+            users: mergedUsers,
+            blog: mergedBlog, 
+            contact: mergedContact,
+            servicesPage: mergedServices,
+            chatHistory: mergedChatHistory,
+            trafficStats: mergedTrafficStats,
+            soilLabHistory: mergedSoilHistory
+        };
+    });
+  }
 
   // Save to LocalStorage whenever data changes
   useEffect(() => {
@@ -245,8 +308,62 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('mothercrop_data');
   };
 
+  const logPageVisit = (pageName: string) => {
+    setData(prev => {
+      // Ensure trafficStats exists
+      const currentStats = prev.trafficStats || {};
+      return {
+        ...prev,
+        trafficStats: {
+          ...currentStats,
+          [pageName]: (currentStats[pageName] || 0) + 1
+        }
+      };
+    });
+  };
+
+  const saveChatSession = (sessionId: string, messages: ChatMessage[]) => {
+     setData(prev => {
+        const history = prev.chatHistory || [];
+        const existingSessionIndex = history.findIndex(s => s.id === sessionId);
+        const preview = messages.find(m => m.role === 'user')?.text || 'New Conversation';
+        
+        // Only keep last 50 messages to prevent storage bloat in this demo
+        const limitedMessages = messages.slice(-50);
+        
+        const newSession = { 
+            id: sessionId, 
+            date: new Date().toLocaleString(), 
+            messages: limitedMessages, 
+            preview 
+        };
+        
+        let newHistory;
+        if (existingSessionIndex >= 0) {
+            newHistory = [...history];
+            newHistory[existingSessionIndex] = newSession;
+        } else {
+            newHistory = [newSession, ...history];
+        }
+        
+        return { ...prev, chatHistory: newHistory.slice(0, 50) };
+     });
+  };
+
+  const saveSoilAnalysis = (result: SoilAnalysisResult) => {
+    setData(prev => {
+      const newRecord: SoilAnalysisRecord = {
+        ...result,
+        id: 'soil-' + Date.now(),
+        date: new Date().toLocaleString()
+      };
+      // Keep last 50 analyses
+      return { ...prev, soilLabHistory: [newRecord, ...prev.soilLabHistory].slice(0, 50) };
+    });
+  };
+
   return (
-    <DataContext.Provider value={{ data, updateData, resetData }}>
+    <DataContext.Provider value={{ data, updateData, resetData, logPageVisit, saveChatSession, saveSoilAnalysis }}>
       {children}
     </DataContext.Provider>
   );

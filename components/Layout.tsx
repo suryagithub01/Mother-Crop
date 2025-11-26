@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Page } from '../types';
-import { Menu, X, Leaf, Instagram, Facebook, Twitter, MessageSquare, Send, Sparkles, Sprout, Lock } from 'lucide-react';
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Page, ChatMessage } from '../types';
+import { Menu, X, Leaf, Instagram, Facebook, Twitter, MessageSquare, Send, Sparkles, Sprout, Lock, FlaskConical } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
+import { useData } from '../store';
 
 // --- Header Component ---
 interface HeaderProps {
@@ -16,6 +18,7 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
     { label: 'Home', page: Page.HOME },
     { label: 'About Us', page: Page.ABOUT },
     { label: 'Services', page: Page.SERVICES },
+    { label: 'Soil Lab', page: Page.SOIL_ANALYSIS },
     { label: 'Blog', page: Page.BLOG },
     { label: 'Contact', page: Page.CONTACT },
   ];
@@ -41,10 +44,11 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
               <button
                 key={item.label}
                 onClick={() => onNavigate(item.page)}
-                className={`text-sm font-medium transition-colors duration-200 hover:text-brand-700 ${
+                className={`text-sm font-medium transition-colors duration-200 hover:text-brand-700 flex items-center ${
                   activePage === item.page ? 'text-brand-700 border-b-2 border-brand-500' : 'text-earth-800'
                 }`}
               >
+                {item.label === 'Soil Lab' && <FlaskConical className="w-4 h-4 mr-1.5" />}
                 {item.label}
               </button>
             ))}
@@ -73,12 +77,13 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
                   onNavigate(item.page);
                   setIsMobileMenuOpen(false);
                 }}
-                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${
+                className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium flex items-center ${
                   activePage === item.page
                     ? 'bg-brand-50 text-brand-700'
                     : 'text-earth-800 hover:bg-earth-100'
                 }`}
               >
+                 {item.label === 'Soil Lab' && <FlaskConical className="w-4 h-4 mr-2" />}
                 {item.label}
               </button>
             ))}
@@ -122,9 +127,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           <div>
             <h3 className="text-white font-serif font-bold mb-4">Quick Links</h3>
             <ul className="space-y-2 text-sm text-brand-100">
-              <li><a href="#" className="hover:text-white transition-colors">Our Story</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Seasonal Produce</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Sustainability</a></li>
+              <li><button onClick={() => onNavigate && onNavigate(Page.ABOUT)} className="hover:text-white transition-colors">Our Story</button></li>
+              <li><button onClick={() => onNavigate && onNavigate(Page.SERVICES)} className="hover:text-white transition-colors">Seasonal Produce</button></li>
+              <li><button onClick={() => onNavigate && onNavigate(Page.SOIL_ANALYSIS)} className="hover:text-white transition-colors flex items-center"><FlaskConical className="w-3 h-3 mr-1"/> AI Soil Lab</button></li>
               <li>
                 <button 
                   onClick={() => onNavigate && onNavigate(Page.ADMIN)} 
@@ -178,25 +183,43 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
 // --- AI Assistant Widget ---
 export const AiAssistant: React.FC = () => {
+  const { saveChatSession } = useData();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<{role: 'user' | 'model', text: string}[]>([
-    { role: 'model', text: "Hi! I'm Mothercrop's AI farming assistant. Ask me anything about organic farming or our produce!" }
+  const [sessionId, setSessionId] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { role: 'model', text: "Hi! I'm Mothercrop's AI farming assistant. Ask me anything about organic farming or our produce!", timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) }
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (!initialized.current) {
+        setSessionId('session-' + Date.now());
+        initialized.current = true;
+    }
+  }, []);
 
   const handleSend = async () => {
     if (!inputValue.trim()) return;
     
-    const userMessage = inputValue;
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    const userMsg: ChatMessage = { role: 'user', text: inputValue, timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+    const updatedMessages = [...messages, userMsg];
+    
+    setMessages(updatedMessages);
     setInputValue('');
     setIsLoading(true);
+
+    // Save user message immediately
+    saveChatSession(sessionId, updatedMessages);
 
     try {
       const apiKey = process.env.API_KEY || '';
       if (!apiKey) {
-         setMessages(prev => [...prev, { role: 'model', text: "I'm currently resting (API Key missing). Please try again later." }]);
+         const errorMsg: ChatMessage = { role: 'model', text: "I'm currently resting (API Key missing). Please try again later.", timestamp: new Date().toLocaleTimeString() };
+         const finalMessages = [...updatedMessages, errorMsg];
+         setMessages(finalMessages);
+         saveChatSession(sessionId, finalMessages);
          setIsLoading(false);
          return;
       }
@@ -205,7 +228,7 @@ export const AiAssistant: React.FC = () => {
       
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
-        contents: userMessage,
+        contents: inputValue,
         config: {
           systemInstruction: "You are an expert organic farming assistant for Mothercrop. Answer questions about sustainable agriculture, vegetables, soil health, and organic practices. Keep answers concise and friendly."
         }
@@ -213,11 +236,17 @@ export const AiAssistant: React.FC = () => {
       
       const responseText = response.text;
       if (responseText) {
-        setMessages(prev => [...prev, { role: 'model', text: responseText }]);
+        const modelMsg: ChatMessage = { role: 'model', text: responseText, timestamp: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) };
+        const finalMessages = [...updatedMessages, modelMsg];
+        setMessages(finalMessages);
+        saveChatSession(sessionId, finalMessages);
       }
     } catch (error) {
       console.error("AI Error", error);
-      setMessages(prev => [...prev, { role: 'model', text: "Sorry, I had trouble digging up that answer. Try asking something else!" }]);
+      const errorMsg: ChatMessage = { role: 'model', text: "Sorry, I had trouble digging up that answer. Try asking something else!", timestamp: new Date().toLocaleTimeString() };
+      const finalMessages = [...updatedMessages, errorMsg];
+      setMessages(finalMessages);
+      saveChatSession(sessionId, finalMessages);
     } finally {
       setIsLoading(false);
     }
@@ -245,7 +274,8 @@ export const AiAssistant: React.FC = () => {
                     ? 'bg-brand-600 text-white rounded-br-none' 
                     : 'bg-white text-earth-800 shadow-sm border border-earth-200 rounded-bl-none'
                 }`}>
-                  {msg.text}
+                  <p>{msg.text}</p>
+                  <p className={`text-[10px] mt-1 text-right ${msg.role === 'user' ? 'text-brand-200' : 'text-earth-400'}`}>{msg.timestamp}</p>
                 </div>
               </div>
             ))}

@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export interface SEOData {
@@ -89,12 +90,57 @@ export interface ContactData {
   mapUrl: string;
 }
 
+export type Role = 'admin' | 'manager' | 'editor';
+
+export interface User {
+  id: number;
+  username: string;
+  password: string; // In a real app, this should be hashed. For this demo, we store as plain text.
+  role: Role;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'model';
+  text: string;
+  timestamp: string;
+}
+
+export interface ChatSession {
+  id: string;
+  date: string;
+  messages: ChatMessage[];
+  preview: string; // First user message
+}
+
+export interface TrafficStat {
+  [pageName: string]: number;
+}
+
+export interface SoilAnalysisResult {
+  score: number;
+  type: string;
+  summary: string;
+  issues: string[];
+  fixes: string[];
+  crops: string[];
+}
+
+export interface SoilAnalysisRecord extends SoilAnalysisResult {
+  id: string;
+  date: string;
+  imageUrl?: string; // Optional to save space
+}
+
 export interface SiteData {
   home: HomeData;
   about: AboutData;
   servicesPage: ServicesPageData;
   blog: BlogPost[];
   contact: ContactData;
+  users: User[];
+  chatHistory: ChatSession[];
+  trafficStats: TrafficStat;
+  soilLabHistory: SoilAnalysisRecord[];
 }
 
 export enum Page {
@@ -103,5 +149,6 @@ export enum Page {
   SERVICES = 'SERVICES',
   BLOG = 'BLOG',
   CONTACT = 'CONTACT',
-  ADMIN = 'ADMIN'
+  ADMIN = 'ADMIN',
+  SOIL_ANALYSIS = 'SOIL_ANALYSIS'
 }

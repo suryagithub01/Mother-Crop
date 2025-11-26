@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Page } from './types';
-import { DataProvider } from './store';
+import { DataProvider, useData } from './store';
 import { Header, Footer, AiAssistant } from './components/Layout';
 import { Home } from './pages/Home';
 import { About } from './pages/About';
@@ -8,8 +9,17 @@ import { Services } from './pages/Services';
 import { Blog } from './pages/Blog';
 import { Contact } from './pages/Contact';
 import { Admin } from './pages/Admin';
+import { SoilAnalysis } from './pages/SoilAnalysis';
 
-const App: React.FC = () => {
+const PageTracker: React.FC<{ currentPage: Page }> = ({ currentPage }) => {
+    const { logPageVisit } = useData();
+    useEffect(() => {
+        logPageVisit(currentPage);
+    }, [currentPage, logPageVisit]);
+    return null;
+}
+
+const AppContent: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>(Page.HOME);
 
   // Simple scroll to top on page change
@@ -31,14 +41,16 @@ const App: React.FC = () => {
         return <Contact />;
       case Page.ADMIN:
         return <Admin onNavigate={setCurrentPage} />;
+      case Page.SOIL_ANALYSIS:
+        return <SoilAnalysis />;
       default:
         return <Home onNavigate={setCurrentPage} />;
     }
   };
 
   return (
-    <DataProvider>
-      <div className="min-h-screen flex flex-col font-sans text-earth-900 bg-earth-50">
+    <div className="min-h-screen flex flex-col font-sans text-earth-900 bg-earth-50">
+        <PageTracker currentPage={currentPage} />
         {/* Hide header on Admin page to give it a dedicated dashboard feel */}
         {currentPage !== Page.ADMIN && (
           <Header activePage={currentPage} onNavigate={setCurrentPage} />
@@ -55,7 +67,14 @@ const App: React.FC = () => {
             <AiAssistant />
           </>
         )}
-      </div>
+    </div>
+  );
+}
+
+const App: React.FC = () => {
+  return (
+    <DataProvider>
+      <AppContent />
     </DataProvider>
   );
 };
