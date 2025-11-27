@@ -1,86 +1,133 @@
+
 import React, { useState } from 'react';
 import { useData } from '../store';
-import { Calendar, User, X, Clock } from 'lucide-react';
+import { Calendar, User, X, Clock, ArrowRight, Share2, Tag } from 'lucide-react';
 import { BlogPost } from '../types';
+import { SEO } from '../components/Layout';
 
 export const Blog: React.FC = () => {
   const { data } = useData();
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
 
-  // Filter only published posts for the public view
+  // Filter only published posts
   const publishedPosts = data.blog.filter(post => post.status === 'published');
+  const featuredPost = publishedPosts[0];
+  const remainingPosts = publishedPosts.slice(1);
 
   return (
-    <div className="bg-earth-50 min-h-screen pb-20 relative">
-      {/* Blog Listing */}
-      <div className="bg-brand-900 py-20 mb-12">
+    <div className="bg-white min-h-screen pb-20 relative">
+      <SEO 
+        title="The Mothercrop Journal - Organic Farming Blog" 
+        description="Read the latest insights on sustainable agriculture, organic recipes, and farm life from Mothercrop." 
+      />
+
+      {/* Header */}
+      <div className="bg-earth-50 pt-20 pb-16 border-b border-earth-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl font-serif font-bold text-white mb-4">The Mothercrop Journal</h1>
-          <p className="text-brand-100">Thoughts on farming, food, and the future.</p>
+          <span className="text-brand-600 font-bold uppercase tracking-widest text-xs mb-2 block">Our Publications</span>
+          <h1 className="text-5xl font-serif font-bold text-brand-900 mb-6">The Journal</h1>
+          <p className="text-xl text-earth-600 max-w-2xl mx-auto leading-relaxed">
+            Stories from the field, recipes from the kitchen, and thoughts on the future of food.
+          </p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8">
         {publishedPosts.length === 0 ? (
-          <div className="text-center py-12 text-earth-500">No published posts yet. Check back soon!</div>
+          <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-earth-100">
+            <h3 className="text-lg font-bold text-earth-400">No articles published yet.</h3>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {publishedPosts.map((post) => (
-              <article 
-                key={post.id} 
-                className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full border border-earth-100 group cursor-pointer"
-                onClick={() => setSelectedPost(post)}
+          <>
+            {/* Featured Post (Hero) */}
+            {featuredPost && (
+              <div 
+                className="group relative bg-white rounded-3xl shadow-xl overflow-hidden cursor-pointer grid grid-cols-1 lg:grid-cols-2 mb-16 border border-earth-100 hover:shadow-2xl transition-all duration-500"
+                onClick={() => setSelectedPost(featuredPost)}
               >
-                <div className="h-56 overflow-hidden relative">
-                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors z-10"></div>
-                  <img 
-                    src={post.imageUrl} 
-                    alt={post.title} 
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
-                  />
-                  <span className="absolute top-4 left-4 z-20 px-3 py-1 bg-white/90 backdrop-blur text-brand-700 text-xs font-bold uppercase tracking-wide rounded-full shadow-sm">
-                    {post.category}
-                  </span>
-                </div>
-                <div className="p-6 flex-1 flex flex-col">
-                  <h2 className="text-xl font-bold text-brand-900 mb-3 group-hover:text-brand-600 transition-colors line-clamp-2">
-                    {post.title}
-                  </h2>
-                  <p className="text-earth-600 text-sm mb-6 line-clamp-3 flex-1 leading-relaxed">
-                    {post.excerpt}
-                  </p>
-                  <div className="flex items-center text-xs text-earth-500 border-t border-earth-100 pt-4 mt-auto">
-                    <div className="flex items-center mr-4">
-                      <User className="h-3 w-3 mr-1" />
-                      {post.author}
+                 <div className="relative h-96 lg:h-auto overflow-hidden">
+                   <div className="absolute inset-0 bg-brand-900/10 group-hover:bg-transparent transition-colors z-10"></div>
+                   <img 
+                      src={featuredPost.imageUrl} 
+                      alt={featuredPost.title} 
+                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
+                   />
+                   <span className="absolute top-6 left-6 z-20 px-4 py-1.5 bg-brand-600 text-white text-xs font-bold uppercase tracking-wide rounded-full shadow-lg">
+                      Featured
+                   </span>
+                 </div>
+                 <div className="p-10 lg:p-16 flex flex-col justify-center">
+                    <div className="flex items-center space-x-4 text-sm text-earth-500 mb-6">
+                        <span className="flex items-center"><Calendar className="w-4 h-4 mr-2" /> {featuredPost.date}</span>
+                        <span className="flex items-center"><User className="w-4 h-4 mr-2" /> {featuredPost.author}</span>
                     </div>
-                    <div className="flex items-center">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      {post.date}
+                    <h2 className="text-3xl lg:text-4xl font-serif font-bold text-brand-900 mb-6 group-hover:text-brand-700 transition-colors">
+                      {featuredPost.title}
+                    </h2>
+                    <p className="text-earth-600 text-lg mb-8 line-clamp-3 leading-relaxed">
+                      {featuredPost.excerpt}
+                    </p>
+                    <div className="flex items-center text-brand-600 font-bold group-hover:translate-x-2 transition-transform">
+                       Read Full Article <ArrowRight className="w-5 h-5 ml-2" />
+                    </div>
+                 </div>
+              </div>
+            )}
+
+            {/* Grid for Remaining Posts */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+              {remainingPosts.map((post) => (
+                <article 
+                  key={post.id} 
+                  className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden flex flex-col h-full border border-earth-100 cursor-pointer"
+                  onClick={() => setSelectedPost(post)}
+                >
+                  <div className="h-56 overflow-hidden relative">
+                    <img 
+                      src={post.imageUrl} 
+                      alt={post.title} 
+                      className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
+                    />
+                    <span className="absolute bottom-4 left-4 z-20 px-3 py-1 bg-white/90 backdrop-blur text-brand-700 text-xs font-bold uppercase tracking-wide rounded-md shadow-sm">
+                      {post.category}
+                    </span>
+                  </div>
+                  <div className="p-8 flex-1 flex flex-col">
+                    <div className="text-xs text-earth-400 mb-3">{post.date}</div>
+                    <h2 className="text-xl font-bold text-brand-900 mb-3 group-hover:text-brand-600 transition-colors line-clamp-2">
+                      {post.title}
+                    </h2>
+                    <p className="text-earth-600 text-sm mb-6 line-clamp-3 flex-1 leading-relaxed">
+                      {post.excerpt}
+                    </p>
+                    <div className="flex items-center justify-between text-xs text-earth-500 border-t border-earth-100 pt-4 mt-auto">
+                      <div className="flex items-center">
+                        <User className="h-3 w-3 mr-1" />
+                        {post.author}
+                      </div>
+                      <div className="flex items-center">
+                        <Clock className="h-3 w-3 mr-1" /> 5 min
+                      </div>
                     </div>
                   </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-
-        {publishedPosts.length > 0 && (
-          <div className="mt-16 text-center">
-            <button className="px-8 py-3 bg-white border-2 border-brand-200 text-brand-700 font-semibold rounded-md hover:bg-brand-50 transition-colors">
-              Load More Articles
-            </button>
-          </div>
+                </article>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
       {/* Article Modal */}
       {selectedPost && (
         <div className="fixed inset-0 z-[60] overflow-y-auto" role="dialog" aria-modal="true">
+          <SEO 
+            title={selectedPost.seo?.metaTitle || selectedPost.title} 
+            description={selectedPost.seo?.metaDescription || selectedPost.excerpt} 
+          />
           <div className="min-h-screen px-4 text-center">
             {/* Backdrop */}
             <div 
-              className="fixed inset-0 bg-brand-900/60 backdrop-blur-sm transition-opacity" 
+              className="fixed inset-0 bg-brand-900/60 backdrop-blur-md transition-opacity" 
               onClick={() => setSelectedPost(null)}
             ></div>
 
@@ -91,60 +138,61 @@ export const Blog: React.FC = () => {
               {/* Close Button */}
               <button 
                 onClick={() => setSelectedPost(null)}
-                className="absolute top-4 right-4 z-20 p-2 bg-white/50 hover:bg-white text-brand-900 rounded-full transition-all backdrop-blur-sm"
+                className="absolute top-6 right-6 z-20 p-2 bg-white/80 hover:bg-white text-earth-900 rounded-full transition-all shadow-sm"
               >
                 <X className="w-6 h-6" />
               </button>
 
               {/* Header Image */}
-              <div className="h-64 sm:h-96 w-full relative">
+              <div className="h-64 sm:h-[450px] w-full relative">
                 <img 
                   src={selectedPost.imageUrl} 
                   alt={selectedPost.title} 
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 p-8 text-white w-full">
-                  <span className="px-3 py-1 bg-brand-500 text-white text-xs font-bold uppercase tracking-wide rounded-full mb-3 inline-block">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 p-8 sm:p-12 text-white w-full max-w-3xl">
+                  <span className="px-3 py-1 bg-brand-500 text-white text-xs font-bold uppercase tracking-wide rounded-full mb-4 inline-block shadow-lg">
                     {selectedPost.category}
                   </span>
-                  <h1 className="text-3xl sm:text-5xl font-serif font-bold mb-4 leading-tight shadow-black drop-shadow-lg">
+                  <h1 className="text-3xl sm:text-5xl font-serif font-bold mb-6 leading-tight drop-shadow-md">
                     {selectedPost.title}
                   </h1>
-                  <div className="flex items-center text-sm font-medium text-brand-100 space-x-6">
-                    <span className="flex items-center"><User className="w-4 h-4 mr-2" /> {selectedPost.author}</span>
-                    <span className="flex items-center"><Calendar className="w-4 h-4 mr-2" /> {selectedPost.date}</span>
-                    <span className="flex items-center"><Clock className="w-4 h-4 mr-2" /> 5 min read</span>
+                  <div className="flex items-center text-sm font-medium text-white/90 space-x-6">
+                    <span className="flex items-center"><User className="w-4 h-4 mr-2 opacity-80" /> {selectedPost.author}</span>
+                    <span className="flex items-center"><Calendar className="w-4 h-4 mr-2 opacity-80" /> {selectedPost.date}</span>
                   </div>
                 </div>
               </div>
 
               {/* Body Content */}
-              <div className="p-8 sm:p-12 bg-white">
-                <div className="prose prose-lg prose-green mx-auto text-earth-800 leading-relaxed whitespace-pre-line">
+              <div className="p-8 sm:p-16 bg-white">
+                <div className="prose prose-lg prose-brand mx-auto text-earth-800 leading-relaxed whitespace-pre-line first-letter:text-5xl first-letter:font-serif first-letter:font-bold first-letter:float-left first-letter:mr-3 first-letter:text-brand-900">
                   {selectedPost.content}
                 </div>
                 
                 {/* Keywords/Tags */}
                 {selectedPost.seo.keywords && (
-                   <div className="mt-12 pt-8 border-t border-earth-100 flex flex-wrap gap-2">
+                   <div className="mt-16 pt-8 border-t border-earth-100 flex flex-wrap gap-2 justify-center">
                       {selectedPost.seo.keywords.split(',').map((tag, i) => (
-                        <span key={i} className="text-xs text-earth-500 bg-earth-100 px-3 py-1 rounded-full">
-                          #{tag.trim()}
+                        <span key={i} className="flex items-center text-xs font-bold text-brand-600 bg-brand-50 px-4 py-2 rounded-full border border-brand-100">
+                          <Tag className="w-3 h-3 mr-2" />
+                          {tag.trim()}
                         </span>
                       ))}
                    </div>
                 )}
               </div>
 
-              {/* Footer */}
-              <div className="bg-earth-50 p-6 flex justify-between items-center border-t border-earth-100">
-                <p className="text-sm text-earth-500">Share this article</p>
-                <div className="flex gap-2">
-                   {/* Dummy Social Buttons */}
-                   <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs cursor-pointer">FB</div>
-                   <div className="w-8 h-8 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs cursor-pointer">TW</div>
-                   <div className="w-8 h-8 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs cursor-pointer">IG</div>
+              {/* Share Footer */}
+              <div className="bg-earth-50 p-8 flex flex-col sm:flex-row justify-between items-center border-t border-earth-100">
+                <p className="text-sm font-bold text-earth-500 mb-4 sm:mb-0 flex items-center">
+                    <Share2 className="w-4 h-4 mr-2" /> Share this story
+                </p>
+                <div className="flex gap-3">
+                   <button className="px-4 py-2 bg-[#1877F2] text-white rounded-lg text-sm font-bold shadow-sm hover:shadow-md transition-shadow">Facebook</button>
+                   <button className="px-4 py-2 bg-[#1DA1F2] text-white rounded-lg text-sm font-bold shadow-sm hover:shadow-md transition-shadow">Twitter</button>
+                   <button className="px-4 py-2 bg-[#E1306C] text-white rounded-lg text-sm font-bold shadow-sm hover:shadow-md transition-shadow">Instagram</button>
                 </div>
               </div>
             </div>

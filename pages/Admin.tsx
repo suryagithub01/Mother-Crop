@@ -1,12 +1,14 @@
 
 import React, { useState } from 'react';
 import { useData } from '../store';
-import { Page, Service, BlogPost, User, Role, TeamMember, ChatSession } from '../types';
+import { Page, Service, BlogPost, User, Role } from '../types';
 import { 
-  RefreshCw, Plus, Trash2, Layout, Users, BookOpen, Phone, Briefcase, 
-  Lock, User as UserIcon, Eye, ChevronDown, ChevronUp, ChevronLeft, 
-  Globe, Shield, LogOut, Save, BarChart3, MessageCircle, FlaskConical
+  Plus, Trash2, Layout, Users, BookOpen, Phone, Briefcase, 
+  Lock, User as UserIcon, ChevronDown, ChevronUp, ChevronLeft, 
+  Globe, Save, BarChart3, MessageCircle, FlaskConical, LogOut,
+  Shield
 } from 'lucide-react';
+import { SEO } from '../components/Layout';
 
 interface AdminProps {
   onNavigate: (page: Page) => void;
@@ -31,7 +33,7 @@ const AccordionSection = ({ title, children, defaultOpen = false }: { title: str
 };
 
 export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
-  const { data, updateData } = useData();
+  const { data, updateData, showNotification } = useData();
   const [activeTab, setActiveTab] = useState<Tab | null>(null);
   
   // Auth State
@@ -56,8 +58,9 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
       // Set initial tab based on role
       if (user.role === 'admin' || user.role === 'manager') setActiveTab('dashboard');
       else if (user.role === 'editor') setActiveTab('blog');
+      showNotification(`Welcome back, ${user.username}!`, 'success');
     } else {
-      alert('Invalid credentials.');
+      showNotification('Invalid credentials. Please try again.', 'error');
     }
   };
 
@@ -66,6 +69,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     setUsername('');
     setPassword('');
     setActiveTab(null);
+    showNotification('Logged out successfully.', 'info');
   };
 
   const hasPermission = (tab: Tab): boolean => {
@@ -83,8 +87,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     newFeatures[idx] = { ...newFeatures[idx], [field]: value };
     updateHome('features', newFeatures);
   };
-  const updateHomeFeaturedSection = (field: string, value: any) => updateData({ home: { ...data.home, featuredSection: { ...data.home.featuredSection, [field]: value } } });
-
+  
   const updateAbout = (field: string, value: any) => updateData({ about: { ...data.about, [field]: value } });
   const updateTeamMember = (id: number, field: string, value: any) => {
     const newTeam = data.about.team.map(m => m.id === id ? { ...m, [field]: value } : m);
@@ -92,6 +95,10 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
   };
 
   const updateContact = (field: string, value: any) => updateData({ contact: { ...data.contact, [field]: value } });
+
+  const handleSave = () => {
+      showNotification('Changes saved successfully!', 'success');
+  }
 
   // --- Service Logic ---
   const addService = () => {
@@ -104,11 +111,13 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
       iconName: "Sprout"
     };
     updateData({ servicesPage: { ...data.servicesPage, items: [...data.servicesPage.items, newService] } });
+    showNotification('Service added.', 'success');
   };
 
   const deleteService = (id: number) => {
     if (confirm('Delete this service?')) {
       updateData({ servicesPage: { ...data.servicesPage, items: data.servicesPage.items.filter(s => s.id !== id) } });
+      showNotification('Service deleted.', 'info');
     }
   };
 
@@ -119,8 +128,8 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
 
   // --- User Logic ---
   const addUser = () => {
-    if (!newUser.username || !newUser.password) return alert('Username and password required');
-    if (data.users.find(u => u.username === newUser.username)) return alert('Username already exists');
+    if (!newUser.username || !newUser.password) return showNotification('Username and password required', 'error');
+    if (data.users.find(u => u.username === newUser.username)) return showNotification('Username already exists', 'error');
     
     const user: User = {
       id: Date.now(),
@@ -130,12 +139,14 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     };
     updateData({ users: [...data.users, user] });
     setNewUser({ username: '', password: '', role: 'editor' });
+    showNotification('User added successfully.', 'success');
   };
 
   const deleteUser = (id: number) => {
-    if (id === currentUser?.id) return alert("You cannot delete yourself.");
+    if (id === currentUser?.id) return showNotification("You cannot delete yourself.", 'error');
     if (confirm("Delete this user?")) {
       updateData({ users: data.users.filter(u => u.id !== id) });
+      showNotification('User deleted.', 'info');
     }
   };
 
@@ -157,11 +168,13 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     };
     updateData({ blog: [newPost, ...data.blog] });
     setEditingPostId(newPost.id);
+    showNotification('New draft created.', 'success');
   };
   const deletePost = (id: number) => {
     if(confirm("Delete post?")) {
       updateData({ blog: data.blog.filter(b => b.id !== id) });
       if (editingPostId === id) setEditingPostId(null);
+      showNotification('Post deleted.', 'info');
     }
   };
 
@@ -169,6 +182,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
   if (!currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-900 to-brand-800">
+        <SEO title="Admin Portal - Mothercrop" description="Restricted access." />
         <div className="bg-white p-10 rounded-2xl shadow-2xl w-full max-w-md backdrop-blur-sm bg-white/95">
           <div className="flex flex-col items-center mb-8">
             <div className="bg-brand-100 p-4 rounded-full mb-4">
@@ -522,6 +536,10 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                   <input value={post.imageUrl} onChange={(e) => updatePost('imageUrl', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="Image URL" />
                 </div>
               </div>
+              
+              <button onClick={() => { setEditingPostId(null); showNotification('Changes saved.', 'success'); }} className="w-full py-4 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 shadow-md flex justify-center items-center">
+                 <Save className="w-5 h-5 mr-2" /> Save & Exit
+              </button>
             </div>
           </div>
         </div>
@@ -544,7 +562,11 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
           </div>
           <div className="flex-1">
             <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Role</label>
-            <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as Role})} className="w-full px-3 py-2 border rounded-lg bg-white">
+            <select 
+              value={newUser.role} 
+              onChange={(e) => setNewUser({...newUser, role: e.target.value as Role})} 
+              className="w-full px-3 py-2 border rounded-lg"
+            >
               <option value="editor">Editor</option>
               <option value="manager">Manager</option>
               <option value="admin">Admin</option>
@@ -558,22 +580,18 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
         <table className="w-full text-left">
           <thead className="bg-earth-50 border-b border-earth-200">
             <tr>
-              <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase">Username</th>
-              <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase">Role</th>
-              <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase text-right">Actions</th>
+               <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase">Username</th>
+               <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase">Role</th>
+               <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-earth-100">
             {data.users.map(u => (
-              <tr key={u.id}>
-                <td className="px-6 py-4 font-medium">{u.username}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${u.role === 'admin' ? 'bg-purple-100 text-purple-700' : u.role === 'manager' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                    {u.role.toUpperCase()}
-                  </span>
-                </td>
+              <tr key={u.id} className="hover:bg-earth-50">
+                <td className="px-6 py-4 font-medium text-brand-900">{u.username}</td>
+                <td className="px-6 py-4 capitalize text-earth-600">{u.role}</td>
                 <td className="px-6 py-4 text-right">
-                  <button onClick={() => deleteUser(u.id)} disabled={u.id === currentUser?.id} className="text-red-500 hover:text-red-700 disabled:opacity-30"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => deleteUser(u.id)} className="text-red-500 hover:text-red-700">Delete</button>
                 </td>
               </tr>
             ))}
@@ -583,195 +601,223 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     </div>
   );
 
-  const renderServicesTab = () => (
-    <div className="space-y-6">
-       <div className="flex justify-between">
-         <h3 className="text-xl font-bold text-brand-900">Services List</h3>
-         <button onClick={addService} className="bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 flex items-center"><Plus className="w-4 h-4 mr-2"/> Add Service</button>
-       </div>
-       <div className="grid grid-cols-1 gap-6">
-         {data.servicesPage.items.map(s => (
-           <div key={s.id} className="bg-white p-6 rounded-xl shadow-sm border border-earth-200">
-             <div className="flex justify-between items-start mb-4">
-                <div className="flex-1 mr-4 space-y-4">
-                   <input value={s.title} onChange={e => updateService(s.id, 'title', e.target.value)} className="w-full font-bold text-lg border-b border-transparent hover:border-earth-300 focus:border-brand-500 outline-none" placeholder="Service Title" />
-                   <textarea value={s.description} onChange={e => updateService(s.id, 'description', e.target.value)} rows={2} className="w-full text-sm text-earth-600 border rounded p-2" placeholder="Short description" />
-                   <textarea value={s.details || ''} onChange={e => updateService(s.id, 'details', e.target.value)} rows={4} className="w-full text-sm text-earth-600 border rounded p-2" placeholder="Full details (for modal)..." />
-                   <div className="flex gap-4">
-                      <input value={s.price} onChange={e => updateService(s.id, 'price', e.target.value)} className="border rounded p-1 text-sm w-32" placeholder="Price" />
-                      <input value={s.iconName} onChange={e => updateService(s.id, 'iconName', e.target.value)} className="border rounded p-1 text-sm w-32" placeholder="Icon Name" />
-                   </div>
-                </div>
-                <button onClick={() => deleteService(s.id)} className="text-red-500 hover:bg-red-50 p-2 rounded"><Trash2 className="w-5 h-5"/></button>
-             </div>
-           </div>
-         ))}
-       </div>
-       
-       <AccordionSection title="CSA Section">
-          <div className="space-y-4">
-             <input value={data.servicesPage.csa.title} onChange={e => updateData({ servicesPage: { ...data.servicesPage, csa: { ...data.servicesPage.csa, title: e.target.value } } })} className="w-full border p-2 rounded" />
-             <textarea value={data.servicesPage.csa.description} onChange={e => updateData({ servicesPage: { ...data.servicesPage, csa: { ...data.servicesPage.csa, description: e.target.value } } })} rows={3} className="w-full border p-2 rounded" />
-             <input value={data.servicesPage.csa.imageUrl} onChange={e => updateData({ servicesPage: { ...data.servicesPage, csa: { ...data.servicesPage.csa, imageUrl: e.target.value } } })} className="w-full border p-2 rounded" placeholder="Image URL" />
+  const renderHomeTab = () => (
+    <div>
+       <AccordionSection title="Hero Section" defaultOpen>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Main Title</label>
+              <input value={data.home.heroTitle} onChange={(e) => updateHome('heroTitle', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Subtitle</label>
+              <textarea value={data.home.heroSubtitle} onChange={(e) => updateHome('heroSubtitle', e.target.value)} rows={3} className="w-full px-3 py-2 border rounded-lg" />
+            </div>
+            <div className="md:col-span-2">
+               <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Hero Image URL</label>
+               <input value={data.home.heroImage} onChange={(e) => updateHome('heroImage', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+            </div>
           </div>
+       </AccordionSection>
+       
+       <AccordionSection title="Features Grid">
+          {data.home.features.map((feat, i) => (
+             <div key={i} className="mb-4 pb-4 border-b border-earth-100 last:border-0 last:pb-0">
+               <label className="block text-xs font-bold text-brand-600 mb-1">Feature {i+1}</label>
+               <input value={feat.title} onChange={(e) => updateHomeFeature(i, 'title', e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-2" placeholder="Title" />
+               <textarea value={feat.desc} onChange={(e) => updateHomeFeature(i, 'desc', e.target.value)} className="w-full px-3 py-2 border rounded-lg" placeholder="Description" rows={2} />
+             </div>
+          ))}
        </AccordionSection>
     </div>
   );
 
+  const renderAboutTab = () => (
+    <div>
+      <AccordionSection title="Hero & Story" defaultOpen>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Hero Title</label>
+            <input value={data.about.heroTitle} onChange={(e) => updateAbout('heroTitle', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Story Content</label>
+            <textarea value={data.about.story} onChange={(e) => updateAbout('story', e.target.value)} rows={8} className="w-full px-3 py-2 border rounded-lg" />
+          </div>
+        </div>
+      </AccordionSection>
+
+      <AccordionSection title="Team Members">
+        <div className="space-y-6">
+          {data.about.team.map(member => (
+            <div key={member.id} className="bg-earth-50 p-4 rounded-lg border border-earth-100">
+               <div className="grid grid-cols-2 gap-4">
+                 <div>
+                   <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Name</label>
+                   <input value={member.name} onChange={(e) => updateTeamMember(member.id, 'name', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Role</label>
+                   <input value={member.role} onChange={(e) => updateTeamMember(member.id, 'role', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+                 </div>
+                 <div className="col-span-2">
+                   <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Bio</label>
+                   <textarea value={member.bio} onChange={(e) => updateTeamMember(member.id, 'bio', e.target.value)} rows={2} className="w-full px-3 py-2 border rounded-lg" />
+                 </div>
+               </div>
+            </div>
+          ))}
+        </div>
+      </AccordionSection>
+    </div>
+  );
+
+  const renderServicesTab = () => (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="font-bold text-brand-900">Manage Services</h3>
+        <button onClick={addService} className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-700">Add Service</button>
+      </div>
+      <div className="grid grid-cols-1 gap-6">
+        {data.servicesPage.items.map(service => (
+          <div key={service.id} className="bg-white border border-earth-200 rounded-xl p-6 shadow-sm">
+             <div className="flex justify-between items-start mb-4">
+               <input value={service.title} onChange={(e) => updateService(service.id, 'title', e.target.value)} className="font-bold text-lg text-brand-900 border-none focus:ring-0 p-0 w-full" />
+               <button onClick={() => deleteService(service.id)} className="text-red-400 hover:text-red-600"><Trash2 className="w-5 h-5" /></button>
+             </div>
+             <div className="space-y-3">
+               <div>
+                  <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Short Description</label>
+                  <textarea value={service.description} onChange={(e) => updateService(service.id, 'description', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" rows={2} />
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Full Details (Modal)</label>
+                  <textarea value={service.details} onChange={(e) => updateService(service.id, 'details', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" rows={4} />
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Price</label>
+                  <input value={service.price} onChange={(e) => updateService(service.id, 'price', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
+               </div>
+             </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderContactTab = () => (
+    <div className="bg-white p-6 rounded-xl border border-earth-200">
+      <h3 className="font-bold text-brand-900 mb-6">Contact Information</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Address</label>
+          <input value={data.contact.address} onChange={(e) => updateContact('address', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">City/State/Zip</label>
+          <input value={data.contact.city} onChange={(e) => updateContact('city', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Email</label>
+          <input value={data.contact.email} onChange={(e) => updateContact('email', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Phone</label>
+          <input value={data.contact.phone} onChange={(e) => updateContact('phone', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+        <div className="md:col-span-2">
+           <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Google Maps Embed URL</label>
+           <input value={data.contact.mapUrl} onChange={(e) => updateContact('mapUrl', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+
+  // --- Main Layout ---
+  const sidebarItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, role: ['admin', 'manager'] },
+    { id: 'home', label: 'Home Page', icon: Layout, role: ['admin', 'manager'] },
+    { id: 'about', label: 'About Us', icon: Users, role: ['admin', 'manager'] },
+    { id: 'services', label: 'Services', icon: Briefcase, role: ['admin', 'manager'] },
+    { id: 'soil-lab', label: 'Soil Lab History', icon: FlaskConical, role: ['admin', 'manager'] },
+    { id: 'blog', label: 'Blog Manager', icon: BookOpen, role: ['admin', 'manager', 'editor'] },
+    { id: 'contact', label: 'Contact Info', icon: Phone, role: ['admin', 'manager'] },
+    { id: 'users', label: 'User Management', icon: Shield, role: ['admin'] },
+  ];
+
   return (
-    <div className="min-h-screen flex bg-earth-50 font-sans text-earth-900">
+    <div className="min-h-screen bg-earth-50 flex">
+      <SEO title="Admin Dashboard - Mothercrop" description="Manage your website content." />
+      
       {/* Sidebar */}
-      <aside className="w-64 bg-brand-900 text-white flex-shrink-0 flex flex-col">
-        <div className="p-6 border-b border-brand-800 flex items-center">
-          <Shield className="w-6 h-6 text-brand-500 mr-3" />
-          <span className="font-serif font-bold text-xl tracking-tight">AdminPanel</span>
+      <div className="w-64 bg-brand-900 text-brand-100 flex-shrink-0 flex flex-col sticky top-0 h-screen">
+        <div className="p-6 border-b border-brand-800">
+          <h2 className="text-xl font-serif font-bold text-white tracking-wide">Mothercrop</h2>
+          <p className="text-xs text-brand-400 mt-1 uppercase tracking-wider font-bold">CMS Panel</p>
         </div>
         
-        <nav className="flex-1 p-4 space-y-2">
-           {hasPermission('dashboard') && (
-             <button onClick={() => setActiveTab('dashboard')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-brand-700 text-white' : 'text-brand-100 hover:bg-brand-800'}`}>
-               <BarChart3 className="w-5 h-5 mr-3" /> Dashboard
-             </button>
-           )}
-           {hasPermission('home') && (
-             <button onClick={() => setActiveTab('home')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'home' ? 'bg-brand-700 text-white' : 'text-brand-100 hover:bg-brand-800'}`}>
-               <Layout className="w-5 h-5 mr-3" /> Home Page
-             </button>
-           )}
-           {hasPermission('about') && (
-             <button onClick={() => setActiveTab('about')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'about' ? 'bg-brand-700 text-white' : 'text-brand-100 hover:bg-brand-800'}`}>
-               <Users className="w-5 h-5 mr-3" /> About Us
-             </button>
-           )}
-           {hasPermission('services') && (
-             <button onClick={() => setActiveTab('services')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'services' ? 'bg-brand-700 text-white' : 'text-brand-100 hover:bg-brand-800'}`}>
-               <Briefcase className="w-5 h-5 mr-3" /> Services
-             </button>
-           )}
-           {hasPermission('soil-lab') && (
-             <button onClick={() => setActiveTab('soil-lab')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'soil-lab' ? 'bg-brand-700 text-white' : 'text-brand-100 hover:bg-brand-800'}`}>
-               <FlaskConical className="w-5 h-5 mr-3" /> Soil Lab Data
-             </button>
-           )}
-           {hasPermission('blog') && (
-             <button onClick={() => setActiveTab('blog')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'blog' ? 'bg-brand-700 text-white' : 'text-brand-100 hover:bg-brand-800'}`}>
-               <BookOpen className="w-5 h-5 mr-3" /> Blog Posts
-             </button>
-           )}
-           {hasPermission('contact') && (
-             <button onClick={() => setActiveTab('contact')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'contact' ? 'bg-brand-700 text-white' : 'text-brand-100 hover:bg-brand-800'}`}>
-               <Phone className="w-5 h-5 mr-3" /> Contact Info
-             </button>
-           )}
-           {hasPermission('users') && (
-             <button onClick={() => setActiveTab('users')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-brand-700 text-white' : 'text-brand-100 hover:bg-brand-800'}`}>
-               <Lock className="w-5 h-5 mr-3" /> User Access
-             </button>
-           )}
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {sidebarItems.filter(item => item.role.includes(currentUser.role)).map((item) => {
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id as Tab)}
+                className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === item.id 
+                    ? 'bg-brand-700 text-white shadow-md' 
+                    : 'hover:bg-brand-800 hover:text-white'
+                }`}
+              >
+                <Icon className="w-5 h-5 mr-3" />
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="p-4 border-t border-brand-800">
+        <div className="p-4 border-t border-brand-800 bg-brand-900">
            <div className="flex items-center mb-4 px-2">
-             <div className="w-8 h-8 rounded-full bg-brand-700 flex items-center justify-center mr-3 font-bold text-xs">
-               {currentUser.username.substring(0,2).toUpperCase()}
-             </div>
-             <div>
-               <div className="text-sm font-bold">{currentUser.username}</div>
-               <div className="text-xs text-brand-300 capitalize">{currentUser.role}</div>
-             </div>
+              <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold mr-3">
+                 {currentUser.username[0].toUpperCase()}
+              </div>
+              <div>
+                 <p className="text-sm font-bold text-white">{currentUser.username}</p>
+                 <p className="text-xs text-brand-400 capitalize">{currentUser.role}</p>
+              </div>
            </div>
-           <button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-2 bg-brand-950/50 hover:bg-brand-950 rounded text-sm transition-colors text-brand-200">
-             <LogOut className="w-4 h-4 mr-2" /> Logout
+           <button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-2 bg-brand-800 hover:bg-brand-700 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors">
+             <LogOut className="w-4 h-4 mr-2" /> Sign Out
            </button>
         </div>
-      </aside>
+      </div>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className="h-16 bg-white border-b border-earth-200 flex items-center justify-between px-8 shadow-sm">
-          <h1 className="text-xl font-bold text-brand-900 capitalize">
-            {activeTab === 'users' ? 'User Management' : activeTab === 'soil-lab' ? 'Soil Laboratory Records' : `${activeTab} ${activeTab === 'dashboard' ? '' : 'Editor'}`}
-          </h1>
-          <button onClick={() => onNavigate(Page.HOME)} className="text-sm text-brand-600 hover:underline flex items-center">
-             View Live Site <Eye className="w-4 h-4 ml-1" />
-          </button>
-        </header>
-        
-        <div className="flex-1 overflow-auto p-8">
-           <div className="max-w-4xl mx-auto">
-             {activeTab === 'dashboard' && renderDashboard()}
-             
-             {activeTab === 'home' && (
-               <div className="space-y-6">
-                  <AccordionSection title="Hero Section" defaultOpen>
-                    <div className="space-y-4">
-                      <div><label className="label">Title</label><input value={data.home.heroTitle} onChange={e => updateHome('heroTitle', e.target.value)} className="input w-full border p-2 rounded" /></div>
-                      <div><label className="label">Subtitle</label><textarea value={data.home.heroSubtitle} onChange={e => updateHome('heroSubtitle', e.target.value)} className="input w-full border p-2 rounded" rows={3} /></div>
-                      <div><label className="label">Image URL</label><input value={data.home.heroImage} onChange={e => updateHome('heroImage', e.target.value)} className="input w-full border p-2 rounded" /></div>
-                    </div>
-                  </AccordionSection>
-                  <AccordionSection title="Features Grid">
-                    {data.home.features.map((f, i) => (
-                      <div key={i} className="mb-4 p-4 border rounded bg-earth-50">
-                        <input value={f.title} onChange={e => updateHomeFeature(i, 'title', e.target.value)} className="w-full mb-2 font-bold bg-transparent border-b" />
-                        <textarea value={f.desc} onChange={e => updateHomeFeature(i, 'desc', e.target.value)} className="w-full text-sm bg-transparent border-b" />
-                      </div>
-                    ))}
-                  </AccordionSection>
-               </div>
-             )}
+      <div className="flex-1 overflow-y-auto h-screen p-8">
+         <div className="max-w-5xl mx-auto">
+            <div className="flex justify-between items-center mb-8">
+               <h1 className="text-3xl font-serif font-bold text-brand-900 capitalize">
+                 {activeTab?.replace('-', ' ') || 'Dashboard'}
+               </h1>
+               {activeTab !== 'dashboard' && activeTab !== 'blog' && activeTab !== 'users' && activeTab !== 'soil-lab' && (
+                 <button onClick={handleSave} className="flex items-center bg-brand-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-brand-700 shadow-md transition-all hover:-translate-y-0.5">
+                   <Save className="w-4 h-4 mr-2" /> Save Changes
+                 </button>
+               )}
+            </div>
 
-             {activeTab === 'about' && (
-               <div className="space-y-6">
-                 <AccordionSection title="Our Story" defaultOpen>
-                    <input value={data.about.heroTitle} onChange={e => updateAbout('heroTitle', e.target.value)} className="w-full mb-4 border p-2 rounded" placeholder="Hero Title" />
-                    <textarea value={data.about.intro} onChange={e => updateAbout('intro', e.target.value)} className="w-full mb-4 border p-2 rounded" placeholder="Intro Text" rows={2} />
-                    <textarea value={data.about.story} onChange={e => updateAbout('story', e.target.value)} className="w-full border p-2 rounded" placeholder="Full Story" rows={8} />
-                 </AccordionSection>
-                 <AccordionSection title="Team Members">
-                    <div className="grid grid-cols-1 gap-6">
-                      {data.about.team.map(member => (
-                        <div key={member.id} className="p-4 border rounded bg-white flex gap-4">
-                           <div className="w-16 h-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0">
-                             <img src={member.imageUrl} className="w-full h-full object-cover" />
-                           </div>
-                           <div className="flex-1 space-y-2">
-                              <input value={member.name} onChange={e => updateTeamMember(member.id, 'name', e.target.value)} className="w-full font-bold border-b" />
-                              <input value={member.role} onChange={e => updateTeamMember(member.id, 'role', e.target.value)} className="w-full text-sm text-brand-600 border-b" />
-                              <textarea value={member.bio} onChange={e => updateTeamMember(member.id, 'bio', e.target.value)} className="w-full text-xs border p-1 rounded" rows={2} />
-                              <input value={member.imageUrl} onChange={e => updateTeamMember(member.id, 'imageUrl', e.target.value)} className="w-full text-xs text-gray-400 border-b" placeholder="Image URL" />
-                           </div>
-                        </div>
-                      ))}
-                    </div>
-                 </AccordionSection>
-               </div>
-             )}
-
-             {activeTab === 'services' && renderServicesTab()}
-             
-             {activeTab === 'soil-lab' && renderSoilLabTab()}
-
-             {activeTab === 'blog' && renderBlogEditor()}
-
-             {activeTab === 'contact' && (
-               <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-200 space-y-4">
-                  <h3 className="font-bold text-lg mb-4">Contact Details</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                     <div><label className="text-xs font-bold uppercase text-gray-500">Email</label><input value={data.contact.email} onChange={e => updateContact('email', e.target.value)} className="w-full border p-2 rounded"/></div>
-                     <div><label className="text-xs font-bold uppercase text-gray-500">Phone</label><input value={data.contact.phone} onChange={e => updateContact('phone', e.target.value)} className="w-full border p-2 rounded"/></div>
-                     <div><label className="text-xs font-bold uppercase text-gray-500">Address</label><input value={data.contact.address} onChange={e => updateContact('address', e.target.value)} className="w-full border p-2 rounded"/></div>
-                     <div><label className="text-xs font-bold uppercase text-gray-500">City</label><input value={data.contact.city} onChange={e => updateContact('city', e.target.value)} className="w-full border p-2 rounded"/></div>
-                  </div>
-                  <div><label className="text-xs font-bold uppercase text-gray-500">Business Hours</label><input value={data.contact.hours} onChange={e => updateContact('hours', e.target.value)} className="w-full border p-2 rounded"/></div>
-                  <div><label className="text-xs font-bold uppercase text-gray-500">Google Maps Embed URL</label><input value={data.contact.mapUrl} onChange={e => updateContact('mapUrl', e.target.value)} className="w-full border p-2 rounded text-sm text-gray-600"/></div>
-               </div>
-             )}
-
-             {activeTab === 'users' && renderUsersTab()}
-           </div>
-        </div>
-      </main>
+            <div className="animate-in fade-in duration-500">
+               {activeTab === 'dashboard' && hasPermission('dashboard') && renderDashboard()}
+               {activeTab === 'home' && hasPermission('home') && renderHomeTab()}
+               {activeTab === 'about' && hasPermission('about') && renderAboutTab()}
+               {activeTab === 'services' && hasPermission('services') && renderServicesTab()}
+               {activeTab === 'blog' && hasPermission('blog') && renderBlogEditor()}
+               {activeTab === 'contact' && hasPermission('contact') && renderContactTab()}
+               {activeTab === 'users' && hasPermission('users') && renderUsersTab()}
+               {activeTab === 'soil-lab' && hasPermission('soil-lab') && renderSoilLabTab()}
+            </div>
+         </div>
+      </div>
     </div>
   );
 };

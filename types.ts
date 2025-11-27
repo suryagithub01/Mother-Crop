@@ -131,6 +131,12 @@ export interface SoilAnalysisRecord extends SoilAnalysisResult {
   imageUrl?: string; // Optional to save space
 }
 
+export interface Notification {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 export interface SiteData {
   home: HomeData;
   about: AboutData;

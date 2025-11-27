@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SiteData, ChatMessage, SoilAnalysisResult, SoilAnalysisRecord } from './types';
+import { SiteData, ChatMessage, SoilAnalysisResult, SoilAnalysisRecord, Notification } from './types';
 
 // Default Hardcoded Data (Initial State)
 const defaultData: SiteData = {
@@ -210,12 +210,15 @@ interface DataContextType {
   logPageVisit: (pageName: string) => void;
   saveChatSession: (sessionId: string, messages: ChatMessage[]) => void;
   saveSoilAnalysis: (result: SoilAnalysisResult) => void;
+  notifications: Notification[];
+  showNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [data, setData] = useState<SiteData>(defaultData);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   // Load from LocalStorage on mount and listen for external changes
   useEffect(() => {
@@ -362,8 +365,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = Date.now();
+    setNotifications(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  };
+
   return (
-    <DataContext.Provider value={{ data, updateData, resetData, logPageVisit, saveChatSession, saveSoilAnalysis }}>
+    <DataContext.Provider value={{ data, updateData, resetData, logPageVisit, saveChatSession, saveSoilAnalysis, notifications, showNotification }}>
       {children}
     </DataContext.Provider>
   );

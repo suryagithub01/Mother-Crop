@@ -1,7 +1,9 @@
+
 import React from 'react';
 import { Page } from '../types';
 import { useData } from '../store';
 import { ArrowRight, Leaf, Truck, Users } from 'lucide-react';
+import { SEO } from '../components/Layout';
 
 interface HomeProps {
   onNavigate: (page: Page) => void;
@@ -22,6 +24,11 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
   return (
     <div className="w-full">
+      <SEO 
+        title="Mothercrop - Premium Organic Farming & CSA" 
+        description="Fresh organic produce delivered to your door. Join our CSA membership today for sustainable, farm-to-table vegetables." 
+      />
+      
       {/* Hero Section */}
       <section className="relative h-[80vh] flex items-center">
         <div className="absolute inset-0 z-0">

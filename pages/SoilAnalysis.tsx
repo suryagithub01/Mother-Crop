@@ -1,7 +1,7 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Upload, Camera, FlaskConical, Sprout, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Upload, Camera, FlaskConical, Sprout, AlertCircle, CheckCircle, Loader2, ScanLine } from 'lucide-react';
 import { useData } from '../store';
 import { SoilAnalysisResult } from '../types';
 
@@ -9,9 +9,42 @@ export const SoilAnalysis: React.FC = () => {
   const { saveSoilAnalysis } = useData();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [analysisStatus, setAnalysisStatus] = useState('');
   const [result, setResult] = useState<SoilAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Simulation timer for the progress bar
+  useEffect(() => {
+    let interval: any;
+    if (isAnalyzing) {
+      setAnalysisProgress(0);
+      const phases = [
+        { p: 15, text: "Scanning soil texture..." },
+        { p: 40, text: "Analyzing color composition..." },
+        { p: 65, text: "Detecting organic matter..." },
+        { p: 85, text: "Calculating health score..." },
+        { p: 90, text: "Generating recommendations..." },
+      ];
+      
+      let phaseIdx = 0;
+      setAnalysisStatus(phases[0].text);
+
+      interval = setInterval(() => {
+        setAnalysisProgress(prev => {
+           if (prev >= 90) return prev; // Hold at 90 until API returns
+           // Check if we should switch text
+           if (phaseIdx < phases.length - 1 && prev > phases[phaseIdx + 1].p) {
+             phaseIdx++;
+             setAnalysisStatus(phases[phaseIdx].text);
+           }
+           return prev + 1; // Increment progress
+        });
+      }, 100);
+    }
+    return () => clearInterval(interval);
+  }, [isAnalyzing]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -40,7 +73,7 @@ export const SoilAnalysis: React.FC = () => {
 
       const ai = new GoogleGenAI({ apiKey });
       
-      // Extract base64 data (remove data:image/jpeg;base64, prefix)
+      // Extract base64 data
       const base64Data = selectedImage.split(',')[1];
       const mimeType = selectedImage.substring(selectedImage.indexOf(':') + 1, selectedImage.indexOf(';'));
 
@@ -74,13 +107,19 @@ export const SoilAnalysis: React.FC = () => {
 
       const text = response.text;
       if (text) {
-        // Clean markdown if present (though responseMimeType should handle it)
         const cleanText = text.replace(/```json/g, '').replace(/```/g, '');
         const data = JSON.parse(cleanText) as SoilAnalysisResult;
-        setResult(data);
         
-        // Save to backend/store
-        saveSoilAnalysis(data);
+        // Complete the progress bar before showing result
+        setAnalysisProgress(100);
+        setAnalysisStatus("Complete!");
+        
+        // Small delay to let user see 100%
+        setTimeout(() => {
+            setResult(data);
+            saveSoilAnalysis(data);
+            setIsAnalyzing(false);
+        }, 500);
 
       } else {
         throw new Error("No analysis received from AI.");
@@ -89,13 +128,24 @@ export const SoilAnalysis: React.FC = () => {
     } catch (err) {
       console.error("Analysis Error:", err);
       setError("Could not analyze image. Please try a clearer photo or try again later.");
-    } finally {
       setIsAnalyzing(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-earth-50">
+      <style>{`
+        @keyframes scan {
+          0% { top: 0%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 100%; opacity: 0; }
+        }
+        .animate-scan {
+          animation: scan 2s linear infinite;
+        }
+      `}</style>
+
       {/* Hero Section */}
       <div className="bg-brand-900 py-16 text-white">
         <div className="max-w-4xl mx-auto px-4 text-center">
@@ -122,14 +172,25 @@ export const SoilAnalysis: React.FC = () => {
               </h2>
               
               <div 
-                className={`border-2 border-dashed rounded-xl h-80 flex flex-col items-center justify-center transition-all cursor-pointer relative overflow-hidden ${selectedImage ? 'border-brand-500 bg-brand-50' : 'border-earth-300 bg-earth-50 hover:bg-earth-100'}`}
-                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-xl h-80 flex flex-col items-center justify-center transition-all cursor-pointer relative overflow-hidden group ${selectedImage ? 'border-brand-500 bg-brand-50' : 'border-earth-300 bg-earth-50 hover:bg-earth-100'}`}
+                onClick={() => !isAnalyzing && fileInputRef.current?.click()}
               >
                 {selectedImage ? (
-                  <img src={selectedImage} alt="Soil preview" className="w-full h-full object-cover" />
+                  <>
+                    <img src={selectedImage} alt="Soil preview" className="w-full h-full object-cover" />
+                    {/* Scanning Overlay */}
+                    {isAnalyzing && (
+                        <div className="absolute inset-0 bg-brand-900/20 z-10">
+                            <div className="absolute w-full h-1 bg-brand-400 shadow-[0_0_15px_rgba(74,222,128,0.8)] animate-scan"></div>
+                            <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur px-3 py-1 rounded text-white text-xs flex items-center">
+                                <ScanLine className="w-3 h-3 mr-1 animate-pulse" /> Processing
+                            </div>
+                        </div>
+                    )}
+                  </>
                 ) : (
                   <>
-                    <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+                    <div className="bg-white p-4 rounded-full shadow-sm mb-4 group-hover:scale-110 transition-transform">
                       <Upload className="w-8 h-8 text-brand-600" />
                     </div>
                     <p className="text-earth-600 font-medium">Click to upload soil photo</p>
@@ -141,6 +202,7 @@ export const SoilAnalysis: React.FC = () => {
                   ref={fileInputRef} 
                   className="hidden" 
                   accept="image/*"
+                  disabled={isAnalyzing}
                   onChange={handleImageUpload} 
                 />
               </div>
@@ -156,9 +218,19 @@ export const SoilAnalysis: React.FC = () => {
               )}
 
               {isAnalyzing && (
-                 <div className="w-full mt-6 py-4 bg-earth-100 text-brand-800 rounded-xl font-bold flex items-center justify-center cursor-not-allowed">
-                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                   Analyzing Composition...
+                 <div className="w-full mt-6 bg-earth-50 border border-earth-200 rounded-xl p-4">
+                   <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-bold text-brand-700 flex items-center">
+                          <Loader2 className="w-3 h-3 mr-2 animate-spin" /> {analysisStatus}
+                      </span>
+                      <span className="text-xs font-bold text-earth-500">{analysisProgress}%</span>
+                   </div>
+                   <div className="w-full bg-earth-200 rounded-full h-2.5 overflow-hidden">
+                      <div 
+                        className="bg-brand-500 h-2.5 rounded-full transition-all duration-300 ease-out" 
+                        style={{ width: `${analysisProgress}%` }}
+                      ></div>
+                   </div>
                  </div>
               )}
 
@@ -178,10 +250,10 @@ export const SoilAnalysis: React.FC = () => {
               </h2>
 
               {result ? (
-                <div className="space-y-6">
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
                   {/* Score Card */}
                   <div className="flex items-center p-4 bg-brand-50 rounded-xl border border-brand-100">
-                     <div className={`w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-md ${result.score > 70 ? 'bg-green-500' : result.score > 40 ? 'bg-yellow-500' : 'bg-red-500'}`}>
+                     <div className={`w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white shadow-md transform transition-transform hover:scale-105 ${result.score > 70 ? 'bg-green-500' : result.score > 40 ? 'bg-yellow-500' : 'bg-red-500'}`}>
                        {result.score}
                      </div>
                      <div className="ml-6">

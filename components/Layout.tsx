@@ -1,9 +1,55 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Page, ChatMessage } from '../types';
-import { Menu, X, Leaf, Instagram, Facebook, Twitter, MessageSquare, Send, Sparkles, Sprout, Lock, FlaskConical } from 'lucide-react';
+import { Menu, X, Leaf, Instagram, Facebook, Twitter, MessageSquare, Send, Sparkles, Sprout, Lock, FlaskConical, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../store';
+
+// --- SEO Component ---
+export const SEO: React.FC<{title: string, description: string}> = ({title, description}) => {
+    useEffect(() => {
+        document.title = title;
+        const metaDesc = document.querySelector('meta[name="description"]');
+        if (metaDesc) {
+            metaDesc.setAttribute('content', description);
+        } else {
+            const meta = document.createElement('meta');
+            meta.name = "description";
+            meta.content = description;
+            document.head.appendChild(meta);
+        }
+    }, [title, description]);
+    return null;
+}
+
+// --- Toast Notification Component ---
+export const ToastContainer = () => {
+  const { notifications } = useData();
+
+  return (
+    <div className="fixed top-24 right-6 z-[60] flex flex-col space-y-3 pointer-events-none">
+      {notifications.map(note => (
+        <div 
+          key={note.id} 
+          className={`
+            pointer-events-auto transform transition-all duration-300 animate-in slide-in-from-right-full
+            flex items-center p-4 rounded-lg shadow-lg border max-w-sm w-full
+            ${note.type === 'success' ? 'bg-white border-l-4 border-l-green-500 text-earth-800' : ''}
+            ${note.type === 'error' ? 'bg-white border-l-4 border-l-red-500 text-earth-800' : ''}
+            ${note.type === 'info' ? 'bg-white border-l-4 border-l-blue-500 text-earth-800' : ''}
+          `}
+        >
+          <div className="flex-shrink-0 mr-3">
+             {note.type === 'success' && <CheckCircle className="w-5 h-5 text-green-500" />}
+             {note.type === 'error' && <AlertCircle className="w-5 h-5 text-red-500" />}
+             {note.type === 'info' && <Info className="w-5 h-5 text-blue-500" />}
+          </div>
+          <p className="text-sm font-medium">{note.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // --- Header Component ---
 interface HeaderProps {
@@ -13,6 +59,13 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const navItems = [
     { label: 'Home', page: Page.HOME },
@@ -24,18 +77,18 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-earth-200 shadow-sm transition-all duration-300">
+    <header className={`sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'bg-white/95 backdrop-blur-md shadow-sm py-2' : 'bg-white py-4 border-b border-earth-100'}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+        <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div 
             className="flex items-center cursor-pointer group"
             onClick={() => onNavigate(Page.HOME)}
           >
-            <div className="bg-brand-700 p-2 rounded-lg group-hover:bg-brand-800 transition-colors">
+            <div className="bg-brand-600 p-2 rounded-lg group-hover:bg-brand-700 transition-colors shadow-sm">
               <Leaf className="h-6 w-6 text-white" />
             </div>
-            <span className="ml-3 text-xl font-bold text-brand-900 tracking-tight">Mothercrop</span>
+            <span className="ml-3 text-xl font-bold text-brand-900 tracking-tight font-serif">Mothercrop</span>
           </div>
 
           {/* Desktop Nav */}
@@ -44,12 +97,15 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
               <button
                 key={item.label}
                 onClick={() => onNavigate(item.page)}
-                className={`text-sm font-medium transition-colors duration-200 hover:text-brand-700 flex items-center ${
-                  activePage === item.page ? 'text-brand-700 border-b-2 border-brand-500' : 'text-earth-800'
+                className={`text-sm font-medium transition-colors duration-200 flex items-center ${
+                  activePage === item.page ? 'text-brand-700' : 'text-earth-600 hover:text-brand-600'
                 }`}
               >
                 {item.label === 'Soil Lab' && <FlaskConical className="w-4 h-4 mr-1.5" />}
                 {item.label}
+                {activePage === item.page && (
+                   <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-500 rounded-full transform scale-x-100 transition-transform"></span>
+                )}
               </button>
             ))}
           </nav>
@@ -68,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
 
       {/* Mobile Nav */}
       {isMobileMenuOpen && (
-        <div className="md:hidden bg-white border-b border-earth-200">
+        <div className="md:hidden bg-white border-b border-earth-200 animate-in slide-in-from-top-4">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {navItems.map((item) => (
               <button
@@ -115,10 +171,12 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           <div className="col-span-1 md:col-span-1">
             <div className="flex items-center mb-4">
-              <Leaf className="h-6 w-6 text-brand-500" />
-              <span className="ml-2 text-xl font-bold text-white">Mothercrop</span>
+              <div className="p-1.5 bg-brand-800 rounded">
+                 <Leaf className="h-5 w-5 text-brand-300" />
+              </div>
+              <span className="ml-2 text-xl font-bold text-white font-serif">Mothercrop</span>
             </div>
-            <p className="text-brand-100 text-sm leading-relaxed">
+            <p className="text-brand-200 text-sm leading-relaxed">
               Cultivating a sustainable future through organic farming practices. 
               Fresh from our soil to your table.
             </p>
@@ -126,7 +184,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
           
           <div>
             <h3 className="text-white font-serif font-bold mb-4">Quick Links</h3>
-            <ul className="space-y-2 text-sm text-brand-100">
+            <ul className="space-y-2 text-sm text-brand-200">
               <li><button onClick={() => onNavigate && onNavigate(Page.ABOUT)} className="hover:text-white transition-colors">Our Story</button></li>
               <li><button onClick={() => onNavigate && onNavigate(Page.SERVICES)} className="hover:text-white transition-colors">Seasonal Produce</button></li>
               <li><button onClick={() => onNavigate && onNavigate(Page.SOIL_ANALYSIS)} className="hover:text-white transition-colors flex items-center"><FlaskConical className="w-3 h-3 mr-1"/> AI Soil Lab</button></li>
@@ -143,7 +201,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
 
           <div>
             <h3 className="text-white font-serif font-bold mb-4">Contact</h3>
-            <ul className="space-y-2 text-sm text-brand-100">
+            <ul className="space-y-2 text-sm text-brand-200">
               <li>123 Harvest Lane</li>
               <li>Green Valley, CA 90210</li>
               <li>hello@mothercrop.com</li>
@@ -157,9 +215,9 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
               <input 
                 type="email" 
                 placeholder="Enter your email" 
-                className="px-4 py-2 bg-brand-800 border border-brand-700 rounded focus:outline-none focus:border-brand-500 text-white placeholder-brand-400 text-sm"
+                className="px-4 py-2 bg-brand-800/50 border border-brand-700 rounded focus:outline-none focus:border-brand-500 text-white placeholder-brand-400 text-sm"
               />
-              <button className="px-4 py-2 bg-brand-500 text-white font-medium rounded hover:bg-brand-600 transition-colors text-sm">
+              <button className="px-4 py-2 bg-brand-500 text-white font-medium rounded hover:bg-brand-400 transition-colors text-sm shadow-lg shadow-brand-900/50">
                 Subscribe
               </button>
             </div>
@@ -266,22 +324,22 @@ export const AiAssistant: React.FC = () => {
             </button>
           </div>
           
-          <div className="h-80 overflow-y-auto p-4 bg-earth-100 space-y-3">
+          <div className="h-80 overflow-y-auto p-4 bg-earth-50 space-y-3">
             {messages.map((msg, idx) => (
               <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-lg p-3 text-sm ${
+                <div className={`max-w-[85%] rounded-2xl p-3 text-sm ${
                   msg.role === 'user' 
-                    ? 'bg-brand-600 text-white rounded-br-none' 
-                    : 'bg-white text-earth-800 shadow-sm border border-earth-200 rounded-bl-none'
+                    ? 'bg-brand-600 text-white rounded-br-sm' 
+                    : 'bg-white text-earth-800 shadow-sm border border-earth-100 rounded-bl-sm'
                 }`}>
-                  <p>{msg.text}</p>
+                  <p className="leading-relaxed">{msg.text}</p>
                   <p className={`text-[10px] mt-1 text-right ${msg.role === 'user' ? 'text-brand-200' : 'text-earth-400'}`}>{msg.timestamp}</p>
                 </div>
               </div>
             ))}
             {isLoading && (
                <div className="flex justify-start">
-                 <div className="bg-white text-earth-800 rounded-lg p-3 shadow-sm border border-earth-200 rounded-bl-none flex items-center space-x-2">
+                 <div className="bg-white text-earth-800 rounded-2xl p-3 shadow-sm border border-earth-100 rounded-bl-sm flex items-center space-x-2">
                    <Sprout className="h-4 w-4 animate-bounce text-brand-500" />
                    <span className="text-xs text-earth-500">Cultivating answer...</span>
                  </div>
@@ -302,7 +360,7 @@ export const AiAssistant: React.FC = () => {
               <button 
                 onClick={handleSend}
                 disabled={isLoading}
-                className="p-2 bg-brand-600 text-white rounded-full hover:bg-brand-700 disabled:opacity-50 transition-colors"
+                className="p-2 bg-brand-600 text-white rounded-full hover:bg-brand-700 disabled:opacity-50 transition-colors shadow-md"
               >
                 <Send className="h-4 w-4" />
               </button>
@@ -313,7 +371,7 @@ export const AiAssistant: React.FC = () => {
 
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`${isOpen ? 'bg-brand-800' : 'bg-brand-600'} hover:bg-brand-700 text-white p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center`}
+        className={`${isOpen ? 'bg-brand-800 rotate-90' : 'bg-brand-600'} hover:bg-brand-700 text-white p-4 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center hover:scale-110`}
       >
         {isOpen ? <X className="h-6 w-6" /> : <MessageSquare className="h-6 w-6" />}
       </button>
