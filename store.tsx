@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SiteData, ChatMessage, SoilAnalysisResult, SoilAnalysisRecord, Notification } from './types';
+import { SiteData, ChatMessage, SoilAnalysisResult, SoilAnalysisRecord, Notification, WeatherData, Subscriber } from './types';
 
 // Default Hardcoded Data (Initial State)
 const defaultData: SiteData = {
@@ -29,6 +29,33 @@ const defaultData: SiteData = {
     }
   ],
   soilLabHistory: [],
+  subscribers: [
+    { id: 1, email: "john@example.com", date: "10/01/2023" },
+    { id: 2, email: "sarah.v@localchef.com", date: "10/05/2023" }
+  ],
+  testimonials: [
+    {
+      id: 1,
+      name: "Emily R.",
+      role: "CSA Member (3 years)",
+      text: "The weekly veggie box has completely changed how my family eats. The carrots actually taste like carrots! Can't recommend Mothercrop enough.",
+      rating: 5
+    },
+    {
+      id: 2,
+      name: "Chef Antonio",
+      role: "Head Chef, The Green Fork",
+      text: "As a chef, consistency and flavor are everything. Mothercrop delivers the highest quality organic produce in the valley, hands down.",
+      rating: 5
+    },
+    {
+      id: 3,
+      name: "Mark Thompson",
+      role: "Home Gardener",
+      text: "Used their Soil Lab service and Garden Consulting. They saved my dying tomato patch. The AI analysis was spot on!",
+      rating: 4
+    }
+  ],
   home: {
     heroTitle: "Cultivating Nature's Purest Potential",
     heroSubtitle: "Mothercrop connects you directly to the earth. 100% organic, sustainable, and delivered from our soil to your doorstep within 24 hours.",
@@ -210,8 +237,10 @@ interface DataContextType {
   logPageVisit: (pageName: string) => void;
   saveChatSession: (sessionId: string, messages: ChatMessage[]) => void;
   saveSoilAnalysis: (result: SoilAnalysisResult) => void;
+  addSubscriber: (email: string) => void;
   notifications: Notification[];
   showNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
+  getFarmWeather: () => WeatherData;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -260,6 +289,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const mergedChatHistory = Array.isArray(parsed.chatHistory) ? parsed.chatHistory : defaultData.chatHistory;
         const mergedTrafficStats = parsed.trafficStats || defaultData.trafficStats;
         const mergedSoilHistory = Array.isArray(parsed.soilLabHistory) ? parsed.soilLabHistory : defaultData.soilLabHistory;
+        const mergedSubscribers = Array.isArray(parsed.subscribers) ? parsed.subscribers : defaultData.subscribers;
+        const mergedTestimonials = Array.isArray(parsed.testimonials) ? parsed.testimonials : defaultData.testimonials;
 
         // Merge blog posts deeply
         const mergedBlog = Array.isArray(parsed.blog) ? parsed.blog.map((p: any) => ({
@@ -292,7 +323,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             servicesPage: mergedServices,
             chatHistory: mergedChatHistory,
             trafficStats: mergedTrafficStats,
-            soilLabHistory: mergedSoilHistory
+            soilLabHistory: mergedSoilHistory,
+            subscribers: mergedSubscribers,
+            testimonials: mergedTestimonials
         };
     });
   }
@@ -357,11 +390,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setData(prev => {
       const newRecord: SoilAnalysisRecord = {
         ...result,
-        id: 'soil-' + Date.now(),
+        id: (result.mode === 'plant' ? 'plant-' : 'soil-') + Date.now(),
         date: new Date().toLocaleString()
       };
       // Keep last 50 analyses
       return { ...prev, soilLabHistory: [newRecord, ...prev.soilLabHistory].slice(0, 50) };
+    });
+  };
+
+  const addSubscriber = (email: string) => {
+    setData(prev => {
+      if (prev.subscribers.some(s => s.email === email)) return prev;
+      return {
+        ...prev,
+        subscribers: [...prev.subscribers, { id: Date.now(), email, date: new Date().toLocaleDateString() }]
+      };
     });
   };
 
@@ -373,8 +416,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 4000);
   };
 
+  // Mock Weather Generator (In a real app, use OpenWeatherMap API)
+  const getFarmWeather = (): WeatherData => {
+    const conditions: Array<WeatherData['condition']> = ['Sunny', 'Cloudy', 'Rainy', 'Storm'];
+    // Randomize slightly based on day to make it feel alive but consistent for the session
+    const day = new Date().getDay(); 
+    return {
+      temp: 72,
+      condition: conditions[day % 3], // Deterministic pseudo-random
+      humidity: 45,
+      windSpeed: 12
+    };
+  };
+
   return (
-    <DataContext.Provider value={{ data, updateData, resetData, logPageVisit, saveChatSession, saveSoilAnalysis, notifications, showNotification }}>
+    <DataContext.Provider value={{ data, updateData, resetData, logPageVisit, saveChatSession, saveSoilAnalysis, addSubscriber, notifications, showNotification, getFarmWeather }}>
       {children}
     </DataContext.Provider>
   );

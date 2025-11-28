@@ -1,20 +1,22 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useData } from '../store';
-import { Page, Service, BlogPost, User, Role } from '../types';
+import { Page, Service, BlogPost, User, Role, SoilAnalysisRecord, Testimonial } from '../types';
 import { 
   Plus, Trash2, Layout, Users, BookOpen, Phone, Briefcase, 
   Lock, User as UserIcon, ChevronDown, ChevronUp, ChevronLeft, 
   Globe, Save, BarChart3, MessageCircle, FlaskConical, LogOut,
-  Shield
+  Shield, X, Eye, Flower2, Megaphone, CloudSun, Wind, Droplets, Mail,
+  Sparkles, Image as ImageIcon, Database, Download, Upload as UploadIcon, FileText
 } from 'lucide-react';
 import { SEO } from '../components/Layout';
+import { GoogleGenAI } from "@google/genai";
 
 interface AdminProps {
   onNavigate: (page: Page) => void;
 }
 
-type Tab = 'dashboard' | 'home' | 'about' | 'services' | 'blog' | 'contact' | 'users' | 'soil-lab';
+type Tab = 'dashboard' | 'home' | 'about' | 'services' | 'blog' | 'contact' | 'users' | 'soil-lab' | 'marketing' | 'settings';
 
 const AccordionSection = ({ title, children, defaultOpen = false }: { title: string, children?: React.ReactNode, defaultOpen?: boolean }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -33,7 +35,7 @@ const AccordionSection = ({ title, children, defaultOpen = false }: { title: str
 };
 
 export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
-  const { data, updateData, showNotification } = useData();
+  const { data, updateData, showNotification, getFarmWeather, resetData } = useData();
   const [activeTab, setActiveTab] = useState<Tab | null>(null);
   
   // Auth State
@@ -43,12 +45,25 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
   
   // Blog State
   const [editingPostId, setEditingPostId] = useState<number | null>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const blogImageInputRef = useRef<HTMLInputElement>(null);
 
   // User Management State
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'editor' as Role });
 
   // Chat Viewer State
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+  // Soil Lab Viewer State
+  const [viewSoilRecord, setViewSoilRecord] = useState<SoilAnalysisRecord | null>(null);
+  const [recordLang, setRecordLang] = useState<'en' | 'hi'>('en');
+
+  // Testimonial State
+  const [newTestimonial, setNewTestimonial] = useState<Partial<Testimonial>>({ name: '', role: '', text: '', rating: 5 });
+
+  // Database Management State
+  const dbFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +90,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
   const hasPermission = (tab: Tab): boolean => {
     if (!currentUser) return false;
     if (currentUser.role === 'admin') return true;
-    if (currentUser.role === 'manager') return tab !== 'users';
+    if (currentUser.role === 'manager') return tab !== 'users' && tab !== 'settings';
     if (currentUser.role === 'editor') return tab === 'blog';
     return false;
   };
@@ -150,6 +165,27 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     }
   };
 
+  // --- Marketing Logic ---
+  const addTestimonial = () => {
+    if (!newTestimonial.name || !newTestimonial.text) return showNotification('Name and text required.', 'error');
+    const t: Testimonial = {
+       id: Date.now(),
+       name: newTestimonial.name || '',
+       role: newTestimonial.role || '',
+       text: newTestimonial.text || '',
+       rating: newTestimonial.rating || 5
+    };
+    updateData({ testimonials: [...data.testimonials, t] });
+    setNewTestimonial({ name: '', role: '', text: '', rating: 5 });
+    showNotification('Testimonial added.', 'success');
+  };
+
+  const deleteTestimonial = (id: number) => {
+     if(confirm('Delete review?')) {
+        updateData({ testimonials: data.testimonials.filter(t => t.id !== id) });
+     }
+  };
+
   // --- Blog Logic ---
   const startEditingPost = (post: BlogPost) => setEditingPostId(post.id);
   const createNewPost = () => {
@@ -158,7 +194,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
       title: "Untitled Post",
       slug: "untitled-post",
       excerpt: "Summary...",
-      content: "Content...",
+      content: "Start writing your story here...",
       date: new Date().toLocaleDateString(),
       author: currentUser?.username || 'Admin',
       category: "General",
@@ -176,6 +212,101 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
       if (editingPostId === id) setEditingPostId(null);
       showNotification('Post deleted.', 'info');
     }
+  };
+
+  const handleBlogImageUpload = (e: React.ChangeEvent<HTMLInputElement>, postId: number) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+              const base64 = reader.result as string;
+              const updated = data.blog.map(b => b.id === postId ? { ...b, imageUrl: base64 } : b);
+              updateData({ blog: updated });
+              showNotification('Image uploaded successfully', 'success');
+          };
+          reader.readAsDataURL(file);
+      }
+  };
+
+  const generateAIPost = async (postId: number) => {
+      if (!aiPrompt) return showNotification('Please enter a topic', 'error');
+      setIsGenerating(true);
+      try {
+        const apiKey = process.env.API_KEY || '';
+        const ai = new GoogleGenAI({ apiKey });
+        
+        const prompt = `Write a comprehensive, engaging blog post about: "${aiPrompt}". 
+        The context is an Organic Farming website. 
+        Return strictly valid JSON with these keys: 
+        { "title": "string", "excerpt": "string", "content": "markdown string", "category": "string", "seoTitle": "string", "seoDesc": "string", "keywords": "comma separated string" }`;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        });
+
+        const text = response.text;
+        if (text) {
+            const generated = JSON.parse(text);
+            const updated = data.blog.map(b => b.id === postId ? {
+                ...b,
+                title: generated.title,
+                excerpt: generated.excerpt,
+                content: generated.content,
+                category: generated.category,
+                seo: {
+                    metaTitle: generated.seoTitle,
+                    metaDescription: generated.seoDesc,
+                    keywords: generated.keywords
+                }
+            } : b);
+            updateData({ blog: updated });
+            showNotification('Blog post generated successfully!', 'success');
+            setAiPrompt('');
+        }
+      } catch (error) {
+          console.error(error);
+          showNotification('AI Generation failed. Check API Key.', 'error');
+      } finally {
+          setIsGenerating(false);
+      }
+  };
+
+  // --- Database Management Logic ---
+  const exportDatabase = () => {
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `mothercrop_backup_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotification('Database exported successfully.', 'success');
+  };
+
+  const importDatabase = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+              try {
+                  const parsed = JSON.parse(event.target?.result as string);
+                  // Basic validation
+                  if (parsed.users && parsed.home) {
+                      updateData(parsed);
+                      showNotification('Database restored successfully!', 'success');
+                  } else {
+                      showNotification('Invalid backup file.', 'error');
+                  }
+              } catch (err) {
+                  showNotification('Failed to parse backup file.', 'error');
+              }
+          };
+          reader.readAsText(file);
+      }
   };
 
   // --- LOGIN VIEW ---
@@ -252,6 +383,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     const trafficValues = Object.values(data.trafficStats || {}) as number[];
     const totalViews = trafficValues.reduce((a, b) => a + b, 0);
     const maxViews = Math.max(...trafficValues, 1);
+    const weather = getFarmWeather();
 
     return (
         <div className="space-y-8 animate-in fade-in">
@@ -264,6 +396,31 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                 </span>
                 <span className="text-xs font-bold text-green-700 uppercase tracking-wide">Live Updates Active</span>
               </div>
+            </div>
+
+            {/* Weather Widget */}
+            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-md flex items-center justify-between">
+               <div>
+                  <h3 className="font-bold text-blue-100 text-sm uppercase mb-1">Farm Weather (Live)</h3>
+                  <div className="flex items-center">
+                     <span className="text-4xl font-bold mr-3">{weather.temp}°F</span>
+                     <span className="text-xl font-medium">{weather.condition}</span>
+                  </div>
+               </div>
+               <div className="flex space-x-6 text-center">
+                  <div>
+                     <CloudSun className="w-8 h-8 mx-auto mb-1 text-blue-200" />
+                     <span className="text-xs font-bold">UV Index: High</span>
+                  </div>
+                  <div>
+                     <Droplets className="w-8 h-8 mx-auto mb-1 text-blue-200" />
+                     <span className="text-xs font-bold">{weather.humidity}% Hum</span>
+                  </div>
+                  <div>
+                     <Wind className="w-8 h-8 mx-auto mb-1 text-blue-200" />
+                     <span className="text-xs font-bold">{weather.windSpeed} mph</span>
+                  </div>
+               </div>
             </div>
 
             {/* Top Cards */}
@@ -284,7 +441,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                 </div>
                 <div className="bg-white p-6 rounded-xl border border-earth-200 shadow-sm">
                     <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-earth-500 font-bold uppercase text-xs">Soil Analyses</h3>
+                        <h3 className="text-earth-500 font-bold uppercase text-xs">Lab Analyses</h3>
                         <FlaskConical className="w-5 h-5 text-brand-500" />
                     </div>
                     <div className="text-3xl font-bold text-brand-900">{data.soilLabHistory?.length || 0}</div>
@@ -354,7 +511,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                                             : 'bg-white text-earth-800 shadow-sm border border-earth-200 rounded-bl-none'
                                     }`}>
                                         <p>{msg.text}</p>
-                                        <p className={`text-[10px] mt-1 text-right ${msg.role === 'user' ? 'text-brand-200' : 'text-earth-400'}`}>{msg.timestamp}</p>
+                                        <p className={`text-[10px] mt-1 text-right ${msg.role === 'user' ? 'text-earth-400' : 'text-earth-400'}`}>{msg.timestamp}</p>
                                     </div>
                                 </div>
                             ))
@@ -370,12 +527,193 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     );
   };
 
-  const renderSoilLabTab = () => (
+  const renderMarketingTab = () => (
+      <div className="space-y-8 animate-in fade-in">
+          {/* Newsletter Section */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-200">
+             <div className="flex justify-between items-center mb-6">
+                <div>
+                   <h3 className="font-bold text-brand-900 text-lg">Newsletter Subscribers</h3>
+                   <p className="text-sm text-earth-500">Manage your email list collected from the footer.</p>
+                </div>
+                <div className="text-3xl font-bold text-brand-600">{data.subscribers.length}</div>
+             </div>
+             <div className="bg-earth-50 rounded-lg p-4 h-64 overflow-y-auto">
+                {data.subscribers.length === 0 ? (
+                    <p className="text-earth-400 text-center py-10">No subscribers yet.</p>
+                ) : (
+                    <table className="w-full text-left text-sm">
+                        <thead className="text-earth-500 border-b border-earth-200">
+                           <tr><th className="pb-2 pl-2">Email</th><th className="pb-2">Date Added</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-earth-200">
+                           {data.subscribers.map(sub => (
+                              <tr key={sub.id}>
+                                 <td className="py-2 pl-2 font-medium text-earth-800">{sub.email}</td>
+                                 <td className="py-2 text-earth-500">{sub.date}</td>
+                              </tr>
+                           ))}
+                        </tbody>
+                    </table>
+                )}
+             </div>
+          </div>
+
+          {/* Testimonial Section */}
+          <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-200">
+             <h3 className="font-bold text-brand-900 text-lg mb-6">Manage Testimonials</h3>
+             
+             {/* Add New */}
+             <div className="bg-earth-50 p-4 rounded-lg border border-earth-100 mb-6">
+                <h4 className="text-sm font-bold text-brand-700 uppercase mb-3">Add New Review</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <input 
+                     placeholder="Customer Name" 
+                     value={newTestimonial.name} 
+                     onChange={e => setNewTestimonial({...newTestimonial, name: e.target.value})}
+                     className="px-3 py-2 rounded border"
+                   />
+                   <input 
+                     placeholder="Role (e.g. CSA Member)" 
+                     value={newTestimonial.role} 
+                     onChange={e => setNewTestimonial({...newTestimonial, role: e.target.value})}
+                     className="px-3 py-2 rounded border"
+                   />
+                   <textarea 
+                     placeholder="Review text..." 
+                     value={newTestimonial.text} 
+                     onChange={e => setNewTestimonial({...newTestimonial, text: e.target.value})}
+                     className="px-3 py-2 rounded border md:col-span-2"
+                     rows={2}
+                   />
+                   <div className="md:col-span-2 flex justify-between items-center">
+                      <select 
+                        value={newTestimonial.rating}
+                        onChange={e => setNewTestimonial({...newTestimonial, rating: parseInt(e.target.value)})}
+                        className="px-3 py-2 rounded border"
+                      >
+                         <option value="5">5 Stars</option>
+                         <option value="4">4 Stars</option>
+                         <option value="3">3 Stars</option>
+                      </select>
+                      <button onClick={addTestimonial} className="bg-brand-600 text-white px-4 py-2 rounded font-bold hover:bg-brand-700">Add Review</button>
+                   </div>
+                </div>
+             </div>
+
+             {/* List */}
+             <div className="grid gap-4">
+                {data.testimonials.map(t => (
+                   <div key={t.id} className="border border-earth-200 p-4 rounded-lg flex justify-between items-start">
+                      <div>
+                         <div className="flex items-center space-x-2">
+                            <span className="font-bold text-brand-900">{t.name}</span>
+                            <span className="text-xs bg-brand-50 text-brand-600 px-2 rounded-full">{t.rating} ★</span>
+                         </div>
+                         <p className="text-xs text-earth-500 mb-1">{t.role}</p>
+                         <p className="text-sm text-earth-700 italic">"{t.text}"</p>
+                      </div>
+                      <button onClick={() => deleteTestimonial(t.id)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
+                   </div>
+                ))}
+             </div>
+          </div>
+      </div>
+  );
+
+  const renderSoilLabTab = () => {
+    // Helper to extract content safely based on language (defaulting to 'en' if 'hi' is missing/undefined in old records)
+    const getContent = (record: SoilAnalysisRecord, lang: 'en' | 'hi') => {
+        // Handle legacy records that might just have flat properties
+        if (!record.en && !record.hi) {
+            // It's a legacy flat record, treat as English
+            return record as any; 
+        }
+        return record[lang] || record['en'];
+    };
+
+    const recordContent = viewSoilRecord ? getContent(viewSoilRecord, recordLang) : null;
+    const isPlantMode = viewSoilRecord?.mode === 'plant';
+
+    return (
     <div className="space-y-6">
+      {/* Modal for viewing detailed record */}
+      {viewSoilRecord && recordContent && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+           <div className="fixed inset-0 bg-brand-900/60 backdrop-blur-sm" onClick={() => setViewSoilRecord(null)}></div>
+           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative z-10 animate-in fade-in zoom-in-95">
+              <div className="sticky top-0 bg-white border-b border-earth-100 p-4 flex justify-between items-center z-20">
+                 <div className="flex items-center space-x-4">
+                    <h3 className="font-bold text-xl text-brand-900">Analysis Details</h3>
+                    <div className="flex bg-earth-100 rounded-lg p-1">
+                        <button onClick={() => setRecordLang('en')} className={`px-2 py-1 text-xs font-bold rounded ${recordLang === 'en' ? 'bg-white shadow-sm' : 'text-earth-500'}`}>EN</button>
+                        <button onClick={() => setRecordLang('hi')} className={`px-2 py-1 text-xs font-bold rounded ${recordLang === 'hi' ? 'bg-white shadow-sm' : 'text-earth-500'}`}>HI</button>
+                    </div>
+                 </div>
+                 <button onClick={() => setViewSoilRecord(null)} className="p-2 hover:bg-earth-100 rounded-full"><X className="w-5 h-5"/></button>
+              </div>
+              <div className="p-6 space-y-6">
+                 <div className="flex justify-between items-start bg-brand-50 p-4 rounded-xl">
+                   <div>
+                      <span className="text-xs text-brand-600 uppercase font-bold">
+                        {isPlantMode ? 'Diagnosis' : 'Soil Type'}
+                      </span>
+                      <h2 className="text-2xl font-serif font-bold text-brand-900">{recordContent.type}</h2>
+                   </div>
+                   <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-white ${viewSoilRecord.score > 70 ? 'bg-green-500' : 'bg-yellow-500'}`}>
+                      {viewSoilRecord.score}
+                   </div>
+                 </div>
+                 
+                 <div>
+                    <h4 className="font-bold text-earth-800 mb-2">Summary</h4>
+                    <p className="text-earth-600 leading-relaxed border-l-4 border-brand-200 pl-4">{recordContent.summary}</p>
+                 </div>
+
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 bg-red-50 rounded-lg">
+                       <h5 className="font-bold text-red-800 text-sm mb-2">
+                           {isPlantMode ? 'Symptoms' : 'Issues'}
+                       </h5>
+                       <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                          {recordContent.issues?.map((i: string, idx: number) => <li key={idx}>{i}</li>)}
+                       </ul>
+                    </div>
+                    <div className="p-4 bg-green-50 rounded-lg">
+                       <h5 className="font-bold text-green-800 text-sm mb-2">
+                           {isPlantMode ? 'Treatments' : 'Fixes'}
+                       </h5>
+                       <ul className="list-disc list-inside text-sm text-green-700 space-y-1">
+                          {recordContent.fixes?.map((f: string, idx: number) => <li key={idx}>{f}</li>)}
+                       </ul>
+                    </div>
+                 </div>
+                 
+                 <div>
+                    <h4 className="font-bold text-earth-800 mb-2">
+                        {isPlantMode ? 'Prevention / Care' : 'Recommended Crops'}
+                    </h4>
+                    <div className="flex flex-col gap-2">
+                       {recordContent.crops?.map((c: string, idx: number) => (
+                         <div key={idx} className="px-4 py-2 bg-brand-50 text-brand-900 rounded-lg text-sm border border-brand-100">
+                           {c}
+                         </div>
+                       ))}
+                    </div>
+                 </div>
+                 
+                 <div className="text-xs text-earth-400 text-center pt-4 border-t border-earth-100">
+                    ID: {viewSoilRecord.id} • Date: {viewSoilRecord.date}
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+
       <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-200">
          <div className="flex items-center justify-between mb-6">
            <div>
-             <h3 className="text-xl font-bold text-brand-900">Soil Analysis History</h3>
+             <h3 className="text-xl font-bold text-brand-900">Lab History</h3>
              <p className="text-earth-600 text-sm">Recent automated tests performed by users.</p>
            </div>
            <div className="text-center">
@@ -388,30 +726,43 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
            <table className="w-full text-left">
              <thead className="bg-earth-50 border-b border-earth-200">
                <tr>
+                 <th className="px-4 py-3 text-xs font-bold text-earth-500 uppercase">Mode</th>
                  <th className="px-4 py-3 text-xs font-bold text-earth-500 uppercase">Date</th>
-                 <th className="px-4 py-3 text-xs font-bold text-earth-500 uppercase">Soil Type</th>
+                 <th className="px-4 py-3 text-xs font-bold text-earth-500 uppercase">Result (EN)</th>
                  <th className="px-4 py-3 text-xs font-bold text-earth-500 uppercase">Score</th>
-                 <th className="px-4 py-3 text-xs font-bold text-earth-500 uppercase">Issues Found</th>
-                 <th className="px-4 py-3 text-xs font-bold text-earth-500 uppercase">Recommended</th>
+                 <th className="px-4 py-3 text-xs font-bold text-earth-500 uppercase text-right">Actions</th>
                </tr>
              </thead>
              <tbody className="divide-y divide-earth-100">
-               {(data.soilLabHistory || []).map(record => (
-                 <tr key={record.id} className="hover:bg-earth-50 transition-colors">
-                   <td className="px-4 py-4 text-sm whitespace-nowrap text-earth-600">{record.date}</td>
-                   <td className="px-4 py-4 text-sm font-medium text-brand-900">{record.type}</td>
-                   <td className="px-4 py-4">
-                     <span className={`px-2 py-1 rounded-full text-xs font-bold ${record.score > 70 ? 'bg-green-100 text-green-700' : record.score > 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
-                       {record.score}/100
-                     </span>
-                   </td>
-                   <td className="px-4 py-4 text-sm text-earth-600 max-w-xs truncate">{record.issues.join(', ')}</td>
-                   <td className="px-4 py-4 text-sm text-brand-600 font-medium max-w-xs truncate">{record.crops.join(', ')}</td>
-                 </tr>
-               ))}
+               {(data.soilLabHistory || []).map(record => {
+                 // Safe access for table view
+                 const displayType = record.en ? record.en.type : (record as any).type;
+                 return (
+                    <tr key={record.id} className="hover:bg-earth-50 transition-colors">
+                        <td className="px-4 py-4">
+                            {record.mode === 'plant' 
+                                ? <span title="Plant Doctor"><Flower2 className="w-5 h-5 text-green-600" /></span>
+                                : <span title="Soil Lab"><FlaskConical className="w-5 h-5 text-brand-600" /></span>
+                            }
+                        </td>
+                        <td className="px-4 py-4 text-sm whitespace-nowrap text-earth-600">{record.date}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-brand-900 max-w-xs truncate">{displayType}</td>
+                        <td className="px-4 py-4">
+                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${record.score > 70 ? 'bg-green-100 text-green-700' : record.score > 40 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                            {record.score}/100
+                            </span>
+                        </td>
+                        <td className="px-4 py-4 text-right">
+                            <button onClick={() => { setViewSoilRecord(record); setRecordLang('en'); }} className="text-brand-600 hover:text-brand-800 font-bold text-sm flex items-center justify-end w-full">
+                                <Eye className="w-4 h-4 mr-1" /> Report
+                            </button>
+                        </td>
+                    </tr>
+                 );
+               })}
                {(data.soilLabHistory || []).length === 0 && (
                  <tr>
-                   <td colSpan={5} className="px-4 py-8 text-center text-earth-400">No soil analysis records found.</td>
+                   <td colSpan={5} className="px-4 py-8 text-center text-earth-400">No records found.</td>
                  </tr>
                )}
              </tbody>
@@ -419,7 +770,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
          </div>
       </div>
     </div>
-  );
+  )};
 
   const renderBlogEditor = () => {
     if (editingPostId === null) {
@@ -496,13 +847,53 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-6">
+              {/* AI Generator */}
+              <div className="bg-gradient-to-r from-brand-900 to-brand-700 p-6 rounded-xl shadow-lg text-white relative overflow-hidden">
+                <Sparkles className="absolute right-0 top-0 w-32 h-32 text-white/10" />
+                <h3 className="font-bold text-lg mb-2 relative z-10 flex items-center"><Sparkles className="w-5 h-5 mr-2 text-yellow-300"/> AI Blog Writer</h3>
+                <p className="text-brand-100 text-sm mb-4 relative z-10">Describe a topic and let Gemini write the full article for you.</p>
+                <div className="flex gap-2 relative z-10">
+                   <input 
+                    value={aiPrompt} 
+                    onChange={e => setAiPrompt(e.target.value)} 
+                    placeholder="E.g. The benefits of crop rotation for small farms..." 
+                    className="flex-1 px-4 py-2 rounded-lg text-brand-900 focus:outline-none"
+                    onKeyPress={e => e.key === 'Enter' && generateAIPost(post.id)}
+                   />
+                   <button 
+                    onClick={() => generateAIPost(post.id)}
+                    disabled={isGenerating}
+                    className="bg-white text-brand-900 px-4 py-2 rounded-lg font-bold hover:bg-brand-50 disabled:opacity-50"
+                   >
+                     {isGenerating ? 'Writing...' : 'Generate'}
+                   </button>
+                </div>
+              </div>
+
               <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-200">
                 <label className="block text-sm font-bold text-earth-700 mb-2">Title</label>
                 <input value={post.title} onChange={(e) => updatePost('title', e.target.value)} className="w-full px-4 py-3 border border-earth-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none font-bold" />
-                <div className="mt-6">
-                  <label className="block text-sm font-bold text-earth-700 mb-2">Content</label>
-                  <textarea value={post.content} onChange={(e) => updatePost('content', e.target.value)} rows={15} className="w-full p-4 border border-earth-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none font-mono text-sm" />
+                
+                {/* Visual Editor Toolbar Mockup */}
+                <div className="mt-6 border border-earth-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-brand-500">
+                  <div className="bg-earth-50 border-b border-earth-300 p-2 flex gap-2">
+                     <button className="p-1.5 hover:bg-white rounded text-earth-600" title="Bold"><strong className="font-serif">B</strong></button>
+                     <button className="p-1.5 hover:bg-white rounded text-earth-600" title="Italic"><em className="font-serif">I</em></button>
+                     <div className="w-px bg-earth-300 h-6 mx-1"></div>
+                     <button className="p-1.5 hover:bg-white rounded text-earth-600 text-xs font-bold" title="H2">H2</button>
+                     <button className="p-1.5 hover:bg-white rounded text-earth-600 text-xs font-bold" title="H3">H3</button>
+                     <div className="w-px bg-earth-300 h-6 mx-1"></div>
+                     <button className="p-1.5 hover:bg-white rounded text-earth-600 text-xs flex items-center" title="Image"><ImageIcon className="w-4 h-4" /></button>
+                  </div>
+                  <textarea 
+                    value={post.content} 
+                    onChange={(e) => updatePost('content', e.target.value)} 
+                    rows={15} 
+                    className="w-full p-4 border-none outline-none font-mono text-sm resize-none" 
+                    placeholder="Write your story using Markdown..."
+                  />
                 </div>
+
                 <div className="mt-6">
                   <label className="block text-sm font-bold text-earth-700 mb-2">Excerpt</label>
                   <textarea value={post.excerpt} onChange={(e) => updatePost('excerpt', e.target.value)} rows={3} className="w-full p-3 border border-earth-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none text-sm" />
@@ -510,7 +901,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
               </div>
 
               <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-200">
-                <div className="flex items-center mb-4 text-brand-700"><Globe className="w-5 h-5 mr-2" /><h3 className="font-bold">SEO</h3></div>
+                <div className="flex items-center mb-4 text-brand-700"><Globe className="w-5 h-5 mr-2" /><h3 className="font-bold">SEO & Metadata</h3></div>
                 <div className="bg-earth-50 p-4 rounded-lg mb-6 border border-earth-200">
                   <label className="block text-xs font-bold text-earth-500 uppercase mb-2">Google Preview</label>
                   <div className="bg-white p-4 rounded shadow-sm">
@@ -522,18 +913,49 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                   <input value={post.seo.metaTitle} onChange={(e) => updateSEO('metaTitle', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg" placeholder="SEO Title" />
                   <input value={post.slug} onChange={(e) => updatePost('slug', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg" placeholder="URL Slug" />
                   <textarea value={post.seo.metaDescription} onChange={(e) => updateSEO('metaDescription', e.target.value)} rows={3} className="w-full px-4 py-2 border border-earth-300 rounded-lg" placeholder="Meta Description" />
-                  <input value={post.seo.keywords} onChange={(e) => updateSEO('keywords', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg" placeholder="Keywords" />
+                  <input value={post.seo.keywords} onChange={(e) => updateSEO('keywords', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg" placeholder="Keywords (comma separated)" />
                 </div>
               </div>
             </div>
             <div className="space-y-6">
               <div className="bg-white p-5 rounded-xl shadow-sm border border-earth-200">
-                <h3 className="font-bold text-brand-900 mb-4">Meta</h3>
+                <h3 className="font-bold text-brand-900 mb-4">Featured Image</h3>
+                <div className="mb-4 rounded-lg overflow-hidden bg-earth-100 h-40 flex items-center justify-center relative group cursor-pointer" onClick={() => blogImageInputRef.current?.click()}>
+                    {post.imageUrl ? (
+                        <img src={post.imageUrl} className="w-full h-full object-cover" alt="Post Header" />
+                    ) : (
+                        <ImageIcon className="w-12 h-12 text-earth-300" />
+                    )}
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-white font-bold text-sm">Change Image</span>
+                    </div>
+                </div>
+                <input 
+                  type="file" 
+                  ref={blogImageInputRef} 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={(e) => handleBlogImageUpload(e, post.id)} 
+                />
+                <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Or use URL</label>
+                <input value={post.imageUrl} onChange={(e) => updatePost('imageUrl', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg text-sm" placeholder="https://..." />
+              </div>
+
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-earth-200">
+                <h3 className="font-bold text-brand-900 mb-4">Post Details</h3>
                 <div className="space-y-4">
-                  <input value={post.author} onChange={(e) => updatePost('author', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="Author" />
-                  <input value={post.category} onChange={(e) => updatePost('category', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="Category" />
-                  <input value={post.date} onChange={(e) => updatePost('date', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="Date" />
-                  <input value={post.imageUrl} onChange={(e) => updatePost('imageUrl', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="Image URL" />
+                  <div>
+                     <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Author</label>
+                     <input value={post.author} onChange={(e) => updatePost('author', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="Author Name" />
+                  </div>
+                  <div>
+                     <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Category</label>
+                     <input value={post.category} onChange={(e) => updatePost('category', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="e.g. Tips, Recipes" />
+                  </div>
+                  <div>
+                     <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Publish Date</label>
+                     <input value={post.date} onChange={(e) => updatePost('date', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="MM/DD/YYYY" />
+                  </div>
                 </div>
               </div>
               
@@ -733,9 +1155,84 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     </div>
   );
 
+  const renderSettingsTab = () => (
+      <div className="animate-in fade-in">
+          <div className="grid grid-cols-1 gap-8">
+              {/* Database Management */}
+              <div className="bg-white p-8 rounded-xl border border-earth-200 shadow-sm">
+                 <div className="flex items-center mb-6 text-brand-700">
+                    <Database className="w-6 h-6 mr-3" />
+                    <h3 className="text-xl font-bold text-brand-900">Database Management</h3>
+                 </div>
+                 <p className="text-earth-600 mb-8 leading-relaxed max-w-2xl">
+                    Manage your website data. You can download a full backup of all content, users, and logs, or restore from a previous backup.
+                    This acts as your primary database control.
+                 </p>
+                 
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="bg-earth-50 p-6 rounded-xl border border-earth-200">
+                        <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mb-4">
+                            <Download className="w-6 h-6" />
+                        </div>
+                        <h4 className="font-bold text-brand-900 mb-2">Export Database</h4>
+                        <p className="text-sm text-earth-500 mb-6">Download a JSON file containing all website data.</p>
+                        <button 
+                            onClick={exportDatabase}
+                            className="w-full py-3 bg-white border border-brand-200 text-brand-800 font-bold rounded-lg hover:bg-brand-50 transition-colors shadow-sm flex items-center justify-center"
+                        >
+                            <FileText className="w-4 h-4 mr-2" /> Download Backup
+                        </button>
+                    </div>
+
+                    <div className="bg-earth-50 p-6 rounded-xl border border-earth-200">
+                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
+                            <UploadIcon className="w-6 h-6" />
+                        </div>
+                        <h4 className="font-bold text-brand-900 mb-2">Import Database</h4>
+                        <p className="text-sm text-earth-500 mb-6">Restore from a previously exported JSON file.</p>
+                        <div className="relative">
+                            <button 
+                                onClick={() => dbFileInputRef.current?.click()}
+                                className="w-full py-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 transition-colors shadow-sm flex items-center justify-center"
+                            >
+                                <UploadIcon className="w-4 h-4 mr-2" /> Upload Backup
+                            </button>
+                            <input 
+                                type="file" 
+                                ref={dbFileInputRef} 
+                                className="hidden" 
+                                accept=".json"
+                                onChange={importDatabase}
+                            />
+                        </div>
+                    </div>
+                 </div>
+
+                 <div className="mt-8 pt-8 border-t border-earth-100">
+                    <h4 className="font-bold text-red-700 mb-4 text-sm uppercase flex items-center">
+                        <Shield className="w-4 h-4 mr-2" /> Danger Zone
+                    </h4>
+                    <button 
+                        onClick={() => {
+                            if(confirm("Are you sure? This will delete ALL data including users, blogs, and stats. This cannot be undone.")) {
+                                resetData();
+                                window.location.reload();
+                            }
+                        }}
+                        className="px-6 py-2 bg-red-50 text-red-600 font-bold rounded-lg hover:bg-red-100 border border-red-200 text-sm"
+                    >
+                        Reset Application Data
+                    </button>
+                 </div>
+              </div>
+          </div>
+      </div>
+  );
+
   // --- Main Layout ---
   const sidebarItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3, role: ['admin', 'manager'] },
+    { id: 'marketing', label: 'Marketing', icon: Megaphone, role: ['admin', 'manager'] },
     { id: 'home', label: 'Home Page', icon: Layout, role: ['admin', 'manager'] },
     { id: 'about', label: 'About Us', icon: Users, role: ['admin', 'manager'] },
     { id: 'services', label: 'Services', icon: Briefcase, role: ['admin', 'manager'] },
@@ -743,6 +1240,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     { id: 'blog', label: 'Blog Manager', icon: BookOpen, role: ['admin', 'manager', 'editor'] },
     { id: 'contact', label: 'Contact Info', icon: Phone, role: ['admin', 'manager'] },
     { id: 'users', label: 'User Management', icon: Shield, role: ['admin'] },
+    { id: 'settings', label: 'Settings & Data', icon: Database, role: ['admin'] },
   ];
 
   return (
@@ -799,7 +1297,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                <h1 className="text-3xl font-serif font-bold text-brand-900 capitalize">
                  {activeTab?.replace('-', ' ') || 'Dashboard'}
                </h1>
-               {activeTab !== 'dashboard' && activeTab !== 'blog' && activeTab !== 'users' && activeTab !== 'soil-lab' && (
+               {activeTab !== 'dashboard' && activeTab !== 'blog' && activeTab !== 'users' && activeTab !== 'soil-lab' && activeTab !== 'marketing' && activeTab !== 'settings' && (
                  <button onClick={handleSave} className="flex items-center bg-brand-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-brand-700 shadow-md transition-all hover:-translate-y-0.5">
                    <Save className="w-4 h-4 mr-2" /> Save Changes
                  </button>
@@ -808,6 +1306,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
 
             <div className="animate-in fade-in duration-500">
                {activeTab === 'dashboard' && hasPermission('dashboard') && renderDashboard()}
+               {activeTab === 'marketing' && hasPermission('marketing') && renderMarketingTab()}
                {activeTab === 'home' && hasPermission('home') && renderHomeTab()}
                {activeTab === 'about' && hasPermission('about') && renderAboutTab()}
                {activeTab === 'services' && hasPermission('services') && renderServicesTab()}
@@ -815,6 +1314,7 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                {activeTab === 'contact' && hasPermission('contact') && renderContactTab()}
                {activeTab === 'users' && hasPermission('users') && renderUsersTab()}
                {activeTab === 'soil-lab' && hasPermission('soil-lab') && renderSoilLabTab()}
+               {activeTab === 'settings' && hasPermission('settings') && renderSettingsTab()}
             </div>
          </div>
       </div>

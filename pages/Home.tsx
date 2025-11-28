@@ -2,7 +2,7 @@
 import React from 'react';
 import { Page } from '../types';
 import { useData } from '../store';
-import { ArrowRight, Leaf, Truck, Users } from 'lucide-react';
+import { ArrowRight, Leaf, Truck, Users, Star } from 'lucide-react';
 import { SEO } from '../components/Layout';
 
 interface HomeProps {
@@ -11,7 +11,7 @@ interface HomeProps {
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const { data } = useData();
-  const { home } = data;
+  const { home, testimonials } = data;
 
   const getIcon = (iconName: string) => {
     switch(iconName) {
@@ -132,6 +132,38 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Dynamic Testimonials Section */}
+      <section className="py-24 bg-earth-100">
+         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+               <span className="text-brand-600 font-semibold tracking-wider uppercase text-sm">Community Love</span>
+               <h2 className="text-3xl md:text-4xl font-serif font-bold text-brand-900 mt-2">What Our Members Say</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+               {testimonials.map((review) => (
+                  <div key={review.id} className="bg-white p-8 rounded-xl shadow-sm border border-earth-200 flex flex-col">
+                     <div className="flex text-yellow-400 mb-4">
+                        {[...Array(5)].map((_, i) => (
+                           <Star key={i} className={`w-5 h-5 ${i < review.rating ? 'fill-current' : 'text-earth-200'}`} />
+                        ))}
+                     </div>
+                     <p className="text-earth-700 italic mb-6 flex-grow">"{review.text}"</p>
+                     <div className="flex items-center mt-auto">
+                        <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center font-bold text-brand-700 mr-3">
+                           {review.name[0]}
+                        </div>
+                        <div>
+                           <div className="font-bold text-brand-900">{review.name}</div>
+                           <div className="text-xs text-earth-500">{review.role}</div>
+                        </div>
+                     </div>
+                  </div>
+               ))}
+            </div>
+         </div>
       </section>
     </div>
   );

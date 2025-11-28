@@ -165,6 +165,19 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
+  const { addSubscriber, showNotification } = useData();
+  const [email, setEmail] = useState('');
+
+  const handleSubscribe = () => {
+    if (!email || !email.includes('@')) {
+      showNotification('Please enter a valid email.', 'error');
+      return;
+    }
+    addSubscriber(email);
+    showNotification('Subscribed successfully!', 'success');
+    setEmail('');
+  };
+
   return (
     <footer className="bg-brand-900 text-brand-50 pt-16 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -214,10 +227,15 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <div className="flex flex-col space-y-2">
               <input 
                 type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email" 
                 className="px-4 py-2 bg-brand-800/50 border border-brand-700 rounded focus:outline-none focus:border-brand-500 text-white placeholder-brand-400 text-sm"
               />
-              <button className="px-4 py-2 bg-brand-500 text-white font-medium rounded hover:bg-brand-400 transition-colors text-sm shadow-lg shadow-brand-900/50">
+              <button 
+                onClick={handleSubscribe}
+                className="px-4 py-2 bg-brand-500 text-white font-medium rounded hover:bg-brand-400 transition-colors text-sm shadow-lg shadow-brand-900/50"
+              >
                 Subscribe
               </button>
             </div>

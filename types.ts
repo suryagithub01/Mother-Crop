@@ -38,6 +38,20 @@ export interface TeamMember {
   imageUrl: string;
 }
 
+export interface Testimonial {
+  id: number;
+  name: string;
+  role: string; // e.g., "CSA Member" or "Local Chef"
+  text: string;
+  rating: number; // 1-5
+}
+
+export interface Subscriber {
+  id: number;
+  email: string;
+  date: string;
+}
+
 export interface HomeData {
   heroTitle: string;
   heroSubtitle: string;
@@ -116,13 +130,19 @@ export interface TrafficStat {
   [pageName: string]: number;
 }
 
-export interface SoilAnalysisResult {
-  score: number;
-  type: string;
+export interface SoilAnalysisContent {
+  type: string; // Soil Type OR Disease Name
   summary: string;
-  issues: string[];
-  fixes: string[];
-  crops: string[];
+  issues: string[]; // Issues OR Symptoms
+  fixes: string[]; // Fixes OR Treatments
+  crops: string[]; // Recommended Crops OR Prevention Tips
+}
+
+export interface SoilAnalysisResult {
+  mode: 'soil' | 'plant';
+  score: number;
+  en: SoilAnalysisContent;
+  hi: SoilAnalysisContent;
 }
 
 export interface SoilAnalysisRecord extends SoilAnalysisResult {
@@ -137,6 +157,13 @@ export interface Notification {
   type: 'success' | 'error' | 'info';
 }
 
+export interface WeatherData {
+  temp: number;
+  condition: 'Sunny' | 'Rainy' | 'Cloudy' | 'Storm';
+  humidity: number;
+  windSpeed: number;
+}
+
 export interface SiteData {
   home: HomeData;
   about: AboutData;
@@ -147,6 +174,8 @@ export interface SiteData {
   chatHistory: ChatSession[];
   trafficStats: TrafficStat;
   soilLabHistory: SoilAnalysisRecord[];
+  testimonials: Testimonial[];
+  subscribers: Subscriber[];
 }
 
 export enum Page {
