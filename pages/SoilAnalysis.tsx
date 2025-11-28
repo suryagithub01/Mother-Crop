@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Upload, Camera, FlaskConical, Sprout, AlertCircle, CheckCircle, Loader2, ChevronRight, Flower2 } from 'lucide-react';
+import { Upload, Camera, FlaskConical, Sprout, AlertCircle, CheckCircle, Loader2, ChevronRight, Flower2, ScanLine, Download, MapPin, Volume2, History, RefreshCw, Calendar, ArrowRight } from 'lucide-react';
 import { useData } from '../store';
-import { SoilAnalysisResult } from '../types';
+import { SoilAnalysisResult, CropRotationPlan } from '../types';
 
 type AnalysisMode = 'soil' | 'plant';
 
@@ -17,6 +17,18 @@ export const SoilAnalysis: React.FC = () => {
   const [result, setResult] = useState<SoilAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState<'en' | 'hi'>('en');
+  
+  // New Inputs
+  const [farmSize, setFarmSize] = useState('500');
+  const [farmUnit, setFarmUnit] = useState('sqft');
+  const [location, setLocation] = useState<string>('Unknown');
+  const [isLocating, setIsLocating] = useState(false);
+
+  // Rotation State
+  const [farmScale, setFarmScale] = useState<'garden' | 'farm'>('garden');
+  const [rotationPlan, setRotationPlan] = useState<CropRotationPlan | null>(null);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Simulation timer for the progress bar
@@ -25,17 +37,19 @@ export const SoilAnalysis: React.FC = () => {
     if (isAnalyzing) {
       setAnalysisProgress(0);
       const phases = mode === 'soil' ? [
-        { p: 15, text: language === 'hi' ? "मिट्टी की बनावट स्कैन हो रही है..." : "Scanning soil texture..." },
-        { p: 40, text: language === 'hi' ? "रंग संरचना का विश्लेषण..." : "Analyzing color composition..." },
-        { p: 65, text: language === 'hi' ? "जैविक पदार्थ का पता लगाना..." : "Detecting organic matter..." },
-        { p: 85, text: language === 'hi' ? "स्वास्थ्य स्कोर की गणना..." : "Calculating health score..." },
-        { p: 90, text: language === 'hi' ? "दोनों भाषाओं में रिपोर्ट तैयार हो रही है..." : "Generating bilingual report..." },
+        { p: 10, text: language === 'hi' ? "ऑप्टिकल सेंसर प्रारंभ हो रहे हैं..." : "Initializing optical sensors..." },
+        { p: 30, text: language === 'hi' ? "मिट्टी की बनावट स्कैन हो रही है..." : "Scanning soil texture & granularity..." },
+        { p: 50, text: language === 'hi' ? "रंग संरचना का विश्लेषण..." : "Analyzing color composition (RGB)..." },
+        { p: 70, text: language === 'hi' ? "जैविक पदार्थ का पता लगाना..." : "Detecting organic matter & moisture..." },
+        { p: 85, text: language === 'hi' ? "कृषि रिपोर्ट संकलित की जा रही है..." : "Compiling agronomist report..." },
+        { p: 95, text: language === 'hi' ? "पूर्ण हो रहा है..." : "Finalizing data..." },
       ] : [
-        { p: 15, text: language === 'hi' ? "पत्ती को स्कैन किया जा रहा है..." : "Scanning leaf structure..." },
-        { p: 40, text: language === 'hi' ? "लक्षणों का पता लगाना..." : "Detecting symptoms/pests..." },
-        { p: 65, text: language === 'hi' ? "बीमारी की पहचान..." : "Identifying disease/deficiency..." },
-        { p: 85, text: language === 'hi' ? "इलाज ढूँढना..." : "Calculating health impact..." },
-        { p: 90, text: language === 'hi' ? "रिपोर्ट तैयार हो रही है..." : "Generating bilingual report..." },
+        { p: 10, text: language === 'hi' ? "इमेज प्रोसेसिंग शुरू..." : "Initializing image processing..." },
+        { p: 30, text: language === 'hi' ? "पत्ती की संरचना स्कैन हो रही है..." : "Scanning leaf structure & veins..." },
+        { p: 50, text: language === 'hi' ? "विकृतियों का पता लगाना..." : "Detecting discoloration & lesions..." },
+        { p: 70, text: language === 'hi' ? "रोगजनक पैटर्न का मिलान..." : "Matching pathogen patterns..." },
+        { p: 85, text: language === 'hi' ? "निदान रिपोर्ट तैयार हो रही है..." : "Generating diagnosis & treatment..." },
+        { p: 95, text: language === 'hi' ? "पूर्ण हो रहा है..." : "Finalizing data..." },
       ];
       
       let phaseIdx = 0;
@@ -43,7 +57,7 @@ export const SoilAnalysis: React.FC = () => {
 
       interval = setInterval(() => {
         setAnalysisProgress(prev => {
-           if (prev >= 90) return prev; // Hold at 90 until API returns
+           if (prev >= 98) return prev; // Hold until API returns
            // Check if we should switch text
            if (phaseIdx < phases.length - 1 && prev > phases[phaseIdx + 1].p) {
              phaseIdx++;
@@ -51,7 +65,7 @@ export const SoilAnalysis: React.FC = () => {
            }
            return prev + 1; // Increment progress
         });
-      }, 100);
+      }, 80); // Slightly faster updates for smoother feel
     }
     return () => clearInterval(interval);
   }, [isAnalyzing, language, mode]);
@@ -64,9 +78,47 @@ export const SoilAnalysis: React.FC = () => {
         setSelectedImage(reader.result as string);
         setResult(null);
         setError(null);
+        setRotationPlan(null); // Reset plan on new image
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const detectLocation = () => {
+      if (navigator.geolocation) {
+          setIsLocating(true);
+          navigator.geolocation.getCurrentPosition(
+              (position) => {
+                  // In a real app, reverse geocode here. We'll simulate it.
+                  setLocation(`${position.coords.latitude.toFixed(2)}, ${position.coords.longitude.toFixed(2)} (Simulated Region)`);
+                  setIsLocating(false);
+              },
+              (err) => {
+                  console.error(err);
+                  setIsLocating(false);
+                  alert("Could not detect location. Please allow permissions.");
+              }
+          );
+      }
+  };
+
+  const playAudio = (text: string) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = language === 'hi' ? 'hi-IN' : 'en-US';
+      window.speechSynthesis.speak(utterance);
+  };
+
+  const downloadReport = () => {
+    if (!result) return;
+    const jsonString = JSON.stringify(result, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mothercrop_${mode}_analysis_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const analyzeSample = async () => {
@@ -91,50 +143,53 @@ export const SoilAnalysis: React.FC = () => {
       
       if (mode === 'soil') {
         prompt = `
-          You are an expert Agronomist and Soil Scientist. Analyze this image of soil in EXTREME DETAIL.
+          You are an expert Agronomist. Analyze this soil image.
+          Context: Farm Size: ${farmSize} ${farmUnit}, Location: ${location}.
           Task:
-          1. Analyze soil structure (e.g., Loam, Clay), moisture, and fertility.
+          1. Analyze soil type, moisture, and potential issues.
           2. Generate a report in ENGLISH and HINDI.
+          3. Calculate exact organic fertilizer needs for the stated farm size.
 
           Return strictly valid JSON:
           {
             "mode": "soil",
             "score": number (0-100),
             "en": {
-              "type": string (e.g. "Sandy Loam"),
-              "summary": string (Detailed analysis paragraph),
-              "issues": string[] (3-5 bullet points),
-              "fixes": string[] (3-5 organic remedies),
-              "crops": string[] (5 suitable crops)
+              "type": string,
+              "summary": string,
+              "issues": string[],
+              "fixes": string[],
+              "crops": string[],
+              "fertilizer_plan": [{ "item": string, "quantity": string, "note": string }]
             },
             "hi": {
               "type": string,
               "summary": string,
               "issues": string[],
               "fixes": string[],
-              "crops": string[]
+              "crops": string[],
+              "fertilizer_plan": [{ "item": string, "quantity": string, "note": string }]
             }
           }
         `;
       } else {
         prompt = `
-          You are an expert Botanist and Plant Pathologist (Leaf Doctor). Analyze this image of a plant/leaf/fruit.
+          You are an expert Plant Pathologist. Analyze this plant/leaf image.
           Task:
-          1. Identify the plant and detect any diseases, pests, or nutrient deficiencies (e.g., Yellowing = Nitrogen deficiency, Spots = Fungal).
-          2. If healthy, state it is healthy.
-          3. Generate a report in ENGLISH and HINDI.
-          4. IMPORTANT: In the 'crops' field (Prevention Tips), include specific prevention for the detected issue, PLUS 2-3 general preventative measures for common plant diseases (e.g., tool sanitation, crop rotation) to promote overall garden health.
+          1. Identify plant and disease/pest.
+          2. Generate report in ENGLISH and HINDI.
+          3. Include specific prevention AND general preventative measures.
 
           Return strictly valid JSON:
           {
             "mode": "plant",
-            "score": number (0-100, 100 is perfectly healthy),
+            "score": number (0-100),
             "en": {
-              "type": string (Disease Name e.g. "Early Blight" OR "Healthy [Plant Name]"),
-              "summary": string (Detailed diagnosis paragraph),
-              "issues": string[] (Visual symptoms detected),
-              "fixes": string[] (Organic treatments/remedies),
-              "crops": string[] (Specific prevention tips AND General plant health best practices)
+              "type": string,
+              "summary": string,
+              "issues": string[],
+              "fixes": string[],
+              "crops": string[] (Prevention tips)
             },
             "hi": {
               "type": string,
@@ -162,7 +217,6 @@ export const SoilAnalysis: React.FC = () => {
 
       const text = response.text;
       if (text) {
-        // Robust parsing
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         const cleanText = jsonMatch ? jsonMatch[0] : text;
         
@@ -172,13 +226,13 @@ export const SoilAnalysis: React.FC = () => {
         data.mode = mode;
 
         setAnalysisProgress(100);
-        setAnalysisStatus(language === 'hi' ? "पूर्ण!" : "Complete!");
+        setAnalysisStatus(language === 'hi' ? "विश्लेषण पूर्ण!" : "Analysis Complete!");
         
         setTimeout(() => {
             setResult(data);
-            saveSoilAnalysis(data);
+            saveSoilAnalysis({ ...data, location });
             setIsAnalyzing(false);
-        }, 500);
+        }, 800);
 
       } else {
         throw new Error("No analysis received from AI.");
@@ -186,8 +240,73 @@ export const SoilAnalysis: React.FC = () => {
 
     } catch (err) {
       console.error("Analysis Error:", err);
-      setError(language === 'hi' ? "छवि का विश्लेषण नहीं कर सका। कृपया स्पष्ट फोटो का उपयोग करें।" : "Could not analyze image. Please try a clearer photo or try again later.");
+      setError(language === 'hi' ? "छवि का विश्लेषण नहीं कर सका।" : "Could not analyze image.");
       setIsAnalyzing(false);
+    }
+  };
+
+  const generateRotationPlan = async () => {
+    if (!result || !result.en) return;
+    
+    setIsGeneratingPlan(true);
+    try {
+        const apiKey = process.env.API_KEY || '';
+        const ai = new GoogleGenAI({ apiKey });
+        
+        const soilType = result.en.type;
+        const issues = result.en.issues.join(', ');
+        const scaleText = farmScale === 'garden' ? "Home Garden (Hand tools, intensive spacing)" : "Small Farm (Tractor/Tillers, row cropping)";
+        const langInstruction = language === 'hi' ? "Translate all content to HINDI." : "Keep content in ENGLISH.";
+
+        const prompt = `
+            Act as a master crop planner. 
+            Based on the following soil analysis:
+            - Soil Type: ${soilType}
+            - Detected Issues: ${issues}
+            - Location/Climate: ${location}
+            - Scale: ${scaleText}
+
+            Create a 3-Year Crop Rotation Plan designed to fix these specific soil issues (e.g. use legumes if nitrogen is low, cover crops if compacted) and prevent pests.
+
+            ${langInstruction}
+
+            Return strictly valid JSON:
+            {
+                "scale": "${farmScale}",
+                "soilType": "${soilType}",
+                "years": [
+                    {
+                        "year": 1,
+                        "focus": "string (e.g. Nitrogen Fixation)",
+                        "schedule": [
+                           { "season": "Spring", "crop": "string", "family": "string", "benefit": "string" },
+                           { "season": "Summer", "crop": "string", "family": "string", "benefit": "string" },
+                           { "season": "Fall", "crop": "string", "family": "string", "benefit": "string" }
+                        ]
+                    },
+                    { "year": 2, "focus": "string", "schedule": [...] },
+                    { "year": 3, "focus": "string", "schedule": [...] }
+                ]
+            }
+        `;
+
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: { responseMimeType: "application/json" }
+        });
+
+        const text = response.text;
+        if (text) {
+             const plan = JSON.parse(text) as CropRotationPlan;
+             setRotationPlan(plan);
+        }
+
+    } catch (e) {
+        console.error(e);
+        alert("Failed to generate plan. Please try again.");
+    } finally {
+        setIsGeneratingPlan(false);
     }
   };
 
@@ -198,12 +317,12 @@ export const SoilAnalysis: React.FC = () => {
       <style>{`
         @keyframes scan {
           0% { top: 0%; opacity: 0; }
-          10% { opacity: 1; }
-          90% { opacity: 1; }
+          10% { opacity: 1; box-shadow: 0 0 15px rgba(74, 222, 128, 0.5); }
+          90% { opacity: 1; box-shadow: 0 0 15px rgba(74, 222, 128, 0.5); }
           100% { top: 100%; opacity: 0; }
         }
         .animate-scan {
-          animation: scan 2s linear infinite;
+          animation: scan 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
         }
       `}</style>
 
@@ -228,13 +347,13 @@ export const SoilAnalysis: React.FC = () => {
           {/* Mode Switcher */}
           <div className="mt-8 inline-flex bg-brand-800 p-1 rounded-full border border-brand-700 shadow-inner">
              <button 
-               onClick={() => { setMode('soil'); setResult(null); setSelectedImage(null); }}
+               onClick={() => { setMode('soil'); setResult(null); setSelectedImage(null); setRotationPlan(null); }}
                className={`px-6 py-2 rounded-full font-bold text-sm transition-all flex items-center ${mode === 'soil' ? 'bg-white text-brand-900 shadow-md' : 'text-brand-300 hover:text-white'}`}
              >
                <FlaskConical className="w-4 h-4 mr-2" /> Soil Analysis
              </button>
              <button 
-               onClick={() => { setMode('plant'); setResult(null); setSelectedImage(null); }}
+               onClick={() => { setMode('plant'); setResult(null); setSelectedImage(null); setRotationPlan(null); }}
                className={`px-6 py-2 rounded-full font-bold text-sm transition-all flex items-center ${mode === 'plant' ? 'bg-white text-brand-900 shadow-md' : 'text-brand-300 hover:text-white'}`}
              >
                <Flower2 className="w-4 h-4 mr-2" /> Plant Doctor
@@ -271,6 +390,31 @@ export const SoilAnalysis: React.FC = () => {
                    </button>
                 </div>
               </div>
+
+               {/* Smart Inputs for Calculation */}
+               {mode === 'soil' && !isAnalyzing && !result && (
+                  <div className="mb-6 grid grid-cols-2 gap-4 bg-earth-50 p-4 rounded-xl border border-earth-100">
+                     <div className="col-span-2 md:col-span-1">
+                        <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Farm/Garden Size</label>
+                        <div className="flex">
+                           <input type="number" value={farmSize} onChange={e => setFarmSize(e.target.value)} className="w-2/3 px-3 py-2 border rounded-l-lg" />
+                           <select value={farmUnit} onChange={e => setFarmUnit(e.target.value)} className="w-1/3 px-3 py-2 border-y border-r rounded-r-lg bg-white">
+                              <option value="sqft">Sq Ft</option>
+                              <option value="acres">Acres</option>
+                           </select>
+                        </div>
+                     </div>
+                     <div className="col-span-2 md:col-span-1">
+                        <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Location</label>
+                        <div className="flex">
+                           <input value={location} onChange={e => setLocation(e.target.value)} className="w-full px-3 py-2 border rounded-l-lg" placeholder="City or Region" />
+                           <button onClick={detectLocation} className="px-3 bg-brand-100 text-brand-700 rounded-r-lg hover:bg-brand-200">
+                              <MapPin className={`w-5 h-5 ${isLocating ? 'animate-pulse' : ''}`} />
+                           </button>
+                        </div>
+                     </div>
+                  </div>
+               )}
               
               <div 
                 className={`border-2 border-dashed rounded-xl h-80 flex flex-col items-center justify-center transition-all cursor-pointer relative overflow-hidden group ${selectedImage ? 'border-brand-500 bg-brand-50' : 'border-earth-300 bg-earth-50 hover:bg-earth-100'}`}
@@ -279,19 +423,47 @@ export const SoilAnalysis: React.FC = () => {
                 {selectedImage ? (
                   <>
                     <img src={selectedImage} alt="Preview" className="w-full h-full object-cover" />
-                    {/* Scanning Overlay */}
+                    
+                    {/* Advanced Scanning Overlay */}
                     {isAnalyzing && (
-                        <div className="absolute inset-0 bg-brand-900/60 z-10 backdrop-blur-sm flex flex-col items-center justify-center">
-                            <div className="absolute w-full h-1 bg-brand-400 shadow-[0_0_15px_rgba(74,222,128,0.8)] animate-scan top-0"></div>
-                            <Loader2 className="w-12 h-12 text-brand-400 animate-spin mb-4" />
-                            <div className="px-6 py-2 bg-black/40 rounded-full text-white font-mono text-sm border border-white/20">
-                                {analysisStatus}
-                            </div>
-                            <div className="w-64 mt-4 bg-white/20 rounded-full h-1.5 overflow-hidden">
-                                <div 
-                                  className="bg-brand-400 h-full rounded-full transition-all duration-300 ease-out shadow-[0_0_10px_rgba(74,222,128,0.5)]" 
-                                  style={{ width: `${analysisProgress}%` }}
-                                ></div>
+                        <div className="absolute inset-0 bg-black/60 z-20 backdrop-blur-sm flex flex-col items-center justify-center">
+                            {/* Animated Scan Line */}
+                            <div className="absolute w-full h-1 bg-gradient-to-r from-transparent via-brand-400 to-transparent shadow-[0_0_20px_rgba(74,222,128,1)] animate-scan top-0 z-10"></div>
+                            
+                            {/* Grid Overlay */}
+                            <div className="absolute inset-0 opacity-10 bg-[linear-gradient(rgba(74,222,128,0.4)_1px,transparent_1px),linear-gradient(90deg,rgba(74,222,128,0.4)_1px,transparent_1px)] bg-[size:20px_20px]"></div>
+                            
+                            {/* Central HUD Panel */}
+                            <div className="bg-black/80 p-6 rounded-2xl border border-brand-500/30 shadow-2xl flex flex-col items-center max-w-xs w-full relative overflow-hidden backdrop-blur-md">
+                                {/* Pulse Effect Background */}
+                                <div className="absolute inset-0 bg-brand-500/5 animate-pulse"></div>
+
+                                <div className="relative z-10 mb-4 bg-brand-900/50 p-3 rounded-full border border-brand-500/50">
+                                   <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
+                                </div>
+                                
+                                <h3 className="text-brand-300 font-bold text-lg mb-1 relative z-10 font-mono tracking-widest uppercase">
+                                  {language === 'hi' ? 'एआई विश्लेषण' : 'AI Analysis'}
+                                </h3>
+                                
+                                <div className="text-white font-mono text-xs mb-4 h-8 relative z-10 text-center flex items-center justify-center px-4 w-full">
+                                    <span className="animate-pulse">{analysisStatus}</span>
+                                </div>
+                                
+                                {/* Sci-Fi Progress Bar */}
+                                <div className="w-full bg-earth-800 rounded-full h-1.5 overflow-hidden relative z-10 border border-earth-700">
+                                    <div 
+                                      className="bg-brand-500 h-full rounded-full transition-all duration-300 ease-out shadow-[0_0_10px_rgba(74,222,128,0.8)] relative" 
+                                      style={{ width: `${analysisProgress}%` }}
+                                    >
+                                        <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/70 shadow-[0_0_5px_#fff]"></div>
+                                    </div>
+                                </div>
+                                <div className="flex justify-between w-full mt-2 text-[10px] text-brand-400 font-mono relative z-10 opacity-70">
+                                    <span>INIT</span>
+                                    <span>{analysisProgress}%</span>
+                                    <span>DONE</span>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -324,8 +496,8 @@ export const SoilAnalysis: React.FC = () => {
                   onClick={analyzeSample}
                   className="w-full mt-6 py-4 bg-brand-600 text-white rounded-xl font-bold text-lg hover:bg-brand-700 transition-transform hover:-translate-y-1 shadow-lg shadow-brand-500/30 flex items-center justify-center"
                 >
-                  {mode === 'soil' ? <FlaskConical className="w-5 h-5 mr-2" /> : <Flower2 className="w-5 h-5 mr-2" />}
-                  {language === 'hi' ? 'विश्लेषण करें' : 'Analyze Sample'}
+                  <ScanLine className="w-5 h-5 mr-2" />
+                  {language === 'hi' ? 'विश्लेषण शुरू करें' : 'Start Scan & Analysis'}
                 </button>
               )}
 
@@ -345,10 +517,31 @@ export const SoilAnalysis: React.FC = () => {
 
             {/* Right Column: Results */}
             <div className={`transition-all duration-700 ${result ? 'opacity-100 translate-y-0' : 'opacity-50 translate-y-4 filter blur-[2px] pointer-events-none'}`}>
-              <h2 className="text-2xl font-bold text-brand-900 mb-6 flex items-center">
-                <Sprout className="w-6 h-6 mr-2 text-brand-600" />
-                2. {mode === 'soil' ? 'Lab Report' : 'Doctor\'s Diagnosis'}
-              </h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-brand-900 flex items-center">
+                  <Sprout className="w-6 h-6 mr-2 text-brand-600" />
+                  2. {mode === 'soil' ? 'Lab Report' : 'Doctor\'s Diagnosis'}
+                </h2>
+                
+                {result && (
+                    <div className="flex gap-2">
+                        <button 
+                          onClick={() => playAudio(currentContent?.summary || '')}
+                          className="flex items-center text-brand-600 hover:text-brand-800 text-sm font-bold bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-lg transition-colors border border-brand-200"
+                          title="Listen to Report"
+                        >
+                           <Volume2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={downloadReport}
+                          className="flex items-center text-brand-600 hover:text-brand-800 text-sm font-bold bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-lg transition-colors border border-brand-200"
+                          title="Download JSON Record"
+                        >
+                          <Download className="w-4 h-4 mr-2" /> Export
+                        </button>
+                    </div>
+                )}
+              </div>
 
               {currentContent && result ? (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -365,6 +558,11 @@ export const SoilAnalysis: React.FC = () => {
                            {language === 'hi' ? 'स्वास्थ्य स्कोर' : 'Health Score'}
                        </p>
                        <h3 className="text-2xl font-serif font-bold text-brand-900">{currentContent.type}</h3>
+                       {/* Timeline Graph Placeholder for Repeat Users */}
+                       <div className="mt-2 flex items-center text-xs text-brand-400">
+                          <History className="w-3 h-3 mr-1" /> 
+                          {language === 'hi' ? 'इतिहास में सहेजा गया' : 'Saved to timeline'}
+                       </div>
                      </div>
                   </div>
 
@@ -376,6 +574,27 @@ export const SoilAnalysis: React.FC = () => {
                       {currentContent.summary}
                     </p>
                   </div>
+
+                  {/* Fertilizer Calculator (Soil Mode Only) */}
+                  {mode === 'soil' && currentContent.fertilizer_plan && (
+                      <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
+                          <h4 className="font-bold text-blue-900 text-sm mb-3 flex items-center uppercase tracking-wide">
+                              {language === 'hi' ? 'स्मार्ट फर्टिलाइजर कैलकुलेटर' : 'Smart Fertilizer Calculator'}
+                              <span className="ml-2 text-xs normal-case bg-blue-200 px-2 py-0.5 rounded-full text-blue-800">For {farmSize} {farmUnit}</span>
+                          </h4>
+                          <div className="space-y-2">
+                              {currentContent.fertilizer_plan.map((plan, i) => (
+                                  <div key={i} className="flex justify-between items-center bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
+                                      <div className="font-bold text-blue-900">{plan.item}</div>
+                                      <div className="text-right">
+                                          <div className="font-bold text-brand-600">{plan.quantity}</div>
+                                          <div className="text-xs text-earth-400">{plan.note}</div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
 
                   <div className="grid grid-cols-1 gap-4">
                     <div className="p-5 bg-red-50 rounded-xl border border-red-100">
@@ -442,6 +661,79 @@ export const SoilAnalysis: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Step 3: Crop Rotation Planner (Only appears after analysis) */}
+        {result && mode === 'soil' && (
+          <div className="mt-12 bg-white rounded-2xl shadow-xl p-8 border border-earth-100 animate-in fade-in slide-in-from-bottom-8 duration-1000">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-brand-900 flex items-center">
+                   <Calendar className="w-6 h-6 mr-2 text-brand-600" />
+                   3. Long-Term Planning: Crop Rotation
+                </h2>
+                <p className="text-earth-600 mt-2">
+                   Generate a 3-year schedule tailored to your {result.en.type} soil to naturally replenish nutrients and break pest cycles.
+                </p>
+              </div>
+              <div className="flex items-center gap-4 bg-earth-50 p-2 rounded-lg border border-earth-100">
+                 <div className="flex items-center space-x-2">
+                    <span className="text-xs font-bold text-earth-500 uppercase">Scale:</span>
+                    <select 
+                        value={farmScale} 
+                        onChange={(e) => setFarmScale(e.target.value as 'garden' | 'farm')}
+                        className="bg-white border border-earth-200 rounded px-2 py-1 text-sm font-medium"
+                    >
+                        <option value="garden">Home Garden</option>
+                        <option value="farm">Small Farm</option>
+                    </select>
+                 </div>
+                 <button 
+                    onClick={generateRotationPlan}
+                    disabled={isGeneratingPlan}
+                    className="bg-brand-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-brand-700 flex items-center shadow-sm disabled:opacity-50"
+                 >
+                    {isGeneratingPlan ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Sprout className="w-4 h-4 mr-2" />}
+                    {isGeneratingPlan ? 'Planning...' : 'Generate Plan'}
+                 </button>
+              </div>
+            </div>
+
+            {rotationPlan ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {rotationPlan.years.map((yearPlan) => (
+                        <div key={yearPlan.year} className="bg-earth-50 rounded-xl border border-earth-200 overflow-hidden flex flex-col">
+                            <div className="bg-brand-900 text-white p-4">
+                                <h3 className="font-bold text-lg">Year {yearPlan.year}</h3>
+                                <div className="text-xs text-brand-200 uppercase tracking-wider font-bold mt-1">Focus: {yearPlan.focus}</div>
+                            </div>
+                            <div className="p-4 space-y-4 flex-1">
+                                {yearPlan.schedule.map((season, idx) => (
+                                    <div key={idx} className="bg-white p-3 rounded-lg border border-earth-100 shadow-sm relative pl-4">
+                                        <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-lg ${
+                                            season.season.includes('Spring') ? 'bg-green-400' : 
+                                            season.season.includes('Summer') ? 'bg-yellow-400' : 
+                                            'bg-orange-400'
+                                        }`}></div>
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className="text-xs font-bold text-earth-400 uppercase">{season.season}</span>
+                                            <span className="text-[10px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded font-bold">{season.family}</span>
+                                        </div>
+                                        <div className="font-bold text-brand-900 text-lg">{season.crop}</div>
+                                        <div className="text-xs text-earth-600 mt-1 leading-tight">{season.benefit}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-12 bg-earth-50/50 rounded-xl border-2 border-dashed border-earth-200">
+                    <Calendar className="w-12 h-12 text-earth-300 mx-auto mb-3" />
+                    <p className="text-earth-500 font-medium">Click "Generate Plan" to create your custom schedule.</p>
+                </div>
+            )}
+          </div>
+        )}
 
         {/* Info Section */}
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">

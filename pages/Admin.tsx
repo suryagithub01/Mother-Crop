@@ -309,6 +309,50 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
       }
   };
 
+  const exportSoilHistory = () => {
+      // Define headers including detailed report fields
+      const headers = ["ID", "Date", "Mode", "Score", "Type", "Summary", "Issues", "Fixes", "Recommendations"];
+      
+      // Helper function to escape special characters for CSV format (handle quotes and commas inside text)
+      const escape = (text: any) => {
+        if (text === null || text === undefined) return '""';
+        return `"${String(text).replace(/"/g, '""')}"`;
+      };
+
+      const rows = data.soilLabHistory.map(r => {
+          // Handle bilingual structure or legacy flat structure
+          const content = r.en || (r as any);
+          
+          const issues = Array.isArray(content.issues) ? content.issues.join('; ') : content.issues;
+          const fixes = Array.isArray(content.fixes) ? content.fixes.join('; ') : content.fixes;
+          const crops = Array.isArray(content.crops) ? content.crops.join('; ') : content.crops;
+
+          return [
+              r.id,
+              r.date,
+              r.mode,
+              r.score,
+              content.type,
+              content.summary,
+              issues,
+              fixes,
+              crops
+          ].map(escape).join(',');
+      });
+      
+      const csvContent = "data:text/csv;charset=utf-8," 
+          + [headers.join(","), ...rows].join("\n");
+          
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", `mothercrop_soil_lab_report_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showNotification('Report exported successfully.', 'success');
+  };
+
   // --- LOGIN VIEW ---
   if (!currentUser) {
     return (
@@ -716,9 +760,17 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
              <h3 className="text-xl font-bold text-brand-900">Lab History</h3>
              <p className="text-earth-600 text-sm">Recent automated tests performed by users.</p>
            </div>
-           <div className="text-center">
-             <div className="text-2xl font-bold text-brand-600">{data.soilLabHistory?.length || 0}</div>
-             <div className="text-xs text-earth-500 uppercase font-bold">Total Tests</div>
+           <div className="flex items-center gap-4">
+             <button 
+                onClick={exportSoilHistory}
+                className="bg-brand-50 text-brand-700 border border-brand-200 hover:bg-brand-100 px-4 py-2 rounded-lg text-sm font-bold flex items-center transition-colors"
+             >
+                <Download className="w-4 h-4 mr-2" /> Export CSV
+             </button>
+             <div className="text-center">
+                <div className="text-2xl font-bold text-brand-600">{data.soilLabHistory?.length || 0}</div>
+                <div className="text-xs text-earth-500 uppercase font-bold">Total Tests</div>
+             </div>
            </div>
          </div>
          
@@ -924,44 +976,36 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                     {post.imageUrl ? (
                         <img src={post.imageUrl} className="w-full h-full object-cover" alt="Post Header" />
                     ) : (
-                        <ImageIcon className="w-12 h-12 text-earth-300" />
+                        <div className="text-earth-400 flex flex-col items-center">
+                            <UploadIcon className="w-8 h-8 mb-2" />
+                            <span className="text-xs">Click to upload</span>
+                        </div>
                     )}
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-white font-bold text-sm">Change Image</span>
+                        <UploadIcon className="text-white w-8 h-8" />
                     </div>
                 </div>
-                <input 
-                  type="file" 
-                  ref={blogImageInputRef} 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={(e) => handleBlogImageUpload(e, post.id)} 
-                />
-                <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Or use URL</label>
-                <input value={post.imageUrl} onChange={(e) => updatePost('imageUrl', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg text-sm" placeholder="https://..." />
-              </div>
-
-              <div className="bg-white p-5 rounded-xl shadow-sm border border-earth-200">
-                <h3 className="font-bold text-brand-900 mb-4">Post Details</h3>
-                <div className="space-y-4">
-                  <div>
-                     <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Author</label>
-                     <input value={post.author} onChange={(e) => updatePost('author', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="Author Name" />
-                  </div>
-                  <div>
-                     <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Category</label>
-                     <input value={post.category} onChange={(e) => updatePost('category', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="e.g. Tips, Recipes" />
-                  </div>
-                  <div>
-                     <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Publish Date</label>
-                     <input value={post.date} onChange={(e) => updatePost('date', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded-lg" placeholder="MM/DD/YYYY" />
-                  </div>
-                </div>
+                <input type="file" ref={blogImageInputRef} className="hidden" accept="image/*" onChange={(e) => handleBlogImageUpload(e, post.id)} />
+                <input value={post.imageUrl} onChange={(e) => updatePost('imageUrl', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded text-xs" placeholder="Or paste image URL" />
               </div>
               
-              <button onClick={() => { setEditingPostId(null); showNotification('Changes saved.', 'success'); }} className="w-full py-4 bg-brand-600 text-white rounded-xl font-bold hover:bg-brand-700 shadow-md flex justify-center items-center">
-                 <Save className="w-5 h-5 mr-2" /> Save & Exit
-              </button>
+              <div className="bg-white p-5 rounded-xl shadow-sm border border-earth-200">
+                 <h3 className="font-bold text-brand-900 mb-4">Post Settings</h3>
+                 <div className="space-y-4">
+                    <div>
+                        <label className="block text-xs font-bold text-earth-500 mb-1">Author</label>
+                        <input value={post.author} onChange={(e) => updatePost('author', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-earth-500 mb-1">Category</label>
+                        <input value={post.category} onChange={(e) => updatePost('category', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-earth-500 mb-1">Date</label>
+                        <input value={post.date} onChange={(e) => updatePost('date', e.target.value)} className="w-full px-3 py-2 border border-earth-300 rounded text-sm" />
+                    </div>
+                 </div>
+              </div>
             </div>
           </div>
         </div>
@@ -969,355 +1013,392 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     }
   };
 
-  const renderUsersTab = () => (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-200">
-        <h3 className="font-bold text-brand-900 mb-4">Add New User</h3>
-        <div className="flex gap-4 items-end">
-          <div className="flex-1">
-            <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Username</label>
-            <input value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
-          </div>
-          <div className="flex-1">
-            <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Password</label>
-            <input value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} className="w-full px-3 py-2 border rounded-lg" />
-          </div>
-          <div className="flex-1">
-            <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Role</label>
-            <select 
-              value={newUser.role} 
-              onChange={(e) => setNewUser({...newUser, role: e.target.value as Role})} 
-              className="w-full px-3 py-2 border rounded-lg"
-            >
-              <option value="editor">Editor</option>
-              <option value="manager">Manager</option>
-              <option value="admin">Admin</option>
-            </select>
-          </div>
-          <button onClick={addUser} className="bg-brand-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-brand-700">Add</button>
+  return (
+    <div className="flex min-h-screen bg-earth-50 font-sans">
+      <SEO title="Admin Dashboard" description="Manage content and users." />
+      
+      {/* Sidebar */}
+      <aside className="w-64 bg-brand-900 text-brand-100 flex-shrink-0 hidden md:flex flex-col">
+        <div className="p-6 border-b border-brand-800">
+           <h2 className="text-2xl font-serif font-bold text-white flex items-center">
+              <Shield className="mr-2" /> Admin
+           </h2>
+           <p className="text-xs text-brand-400 mt-1">Logged in as <span className="text-white font-bold">{currentUser.username}</span></p>
         </div>
-      </div>
+        
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          {hasPermission('dashboard') && (
+              <button 
+                onClick={() => setActiveTab('dashboard')}
+                className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'dashboard' ? 'bg-brand-800 text-white shadow-md' : 'hover:bg-brand-800/50'}`}
+              >
+                <BarChart3 className="w-5 h-5 mr-3" /> Dashboard
+              </button>
+          )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-earth-200 overflow-hidden">
-        <table className="w-full text-left">
-          <thead className="bg-earth-50 border-b border-earth-200">
-            <tr>
-               <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase">Username</th>
-               <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase">Role</th>
-               <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-earth-100">
-            {data.users.map(u => (
-              <tr key={u.id} className="hover:bg-earth-50">
-                <td className="px-6 py-4 font-medium text-brand-900">{u.username}</td>
-                <td className="px-6 py-4 capitalize text-earth-600">{u.role}</td>
-                <td className="px-6 py-4 text-right">
-                  <button onClick={() => deleteUser(u.id)} className="text-red-500 hover:text-red-700">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+          <div className="pt-4 pb-2 px-4 text-xs font-bold text-brand-500 uppercase tracking-wider">Content</div>
+          
+          {hasPermission('home') && (
+            <button onClick={() => setActiveTab('home')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'home' ? 'bg-brand-800 text-white' : 'hover:bg-brand-800/50'}`}>
+              <Layout className="w-5 h-5 mr-3" /> Home Page
+            </button>
+          )}
+          {hasPermission('about') && (
+            <button onClick={() => setActiveTab('about')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'about' ? 'bg-brand-800 text-white' : 'hover:bg-brand-800/50'}`}>
+              <Users className="w-5 h-5 mr-3" /> About Us
+            </button>
+          )}
+          {hasPermission('services') && (
+            <button onClick={() => setActiveTab('services')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'services' ? 'bg-brand-800 text-white' : 'hover:bg-brand-800/50'}`}>
+              <Briefcase className="w-5 h-5 mr-3" /> Services
+            </button>
+          )}
+          {hasPermission('blog') && (
+            <button onClick={() => setActiveTab('blog')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'blog' ? 'bg-brand-800 text-white' : 'hover:bg-brand-800/50'}`}>
+              <BookOpen className="w-5 h-5 mr-3" /> Blog
+            </button>
+          )}
+           {hasPermission('contact') && (
+            <button onClick={() => setActiveTab('contact')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'contact' ? 'bg-brand-800 text-white' : 'hover:bg-brand-800/50'}`}>
+              <Phone className="w-5 h-5 mr-3" /> Contact Info
+            </button>
+          )}
 
-  const renderHomeTab = () => (
-    <div>
-       <AccordionSection title="Hero Section" defaultOpen>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Main Title</label>
-              <input value={data.home.heroTitle} onChange={(e) => updateHome('heroTitle', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Subtitle</label>
-              <textarea value={data.home.heroSubtitle} onChange={(e) => updateHome('heroSubtitle', e.target.value)} rows={3} className="w-full px-3 py-2 border rounded-lg" />
-            </div>
-            <div className="md:col-span-2">
-               <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Hero Image URL</label>
-               <input value={data.home.heroImage} onChange={(e) => updateHome('heroImage', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-            </div>
-          </div>
-       </AccordionSection>
-       
-       <AccordionSection title="Features Grid">
-          {data.home.features.map((feat, i) => (
-             <div key={i} className="mb-4 pb-4 border-b border-earth-100 last:border-0 last:pb-0">
-               <label className="block text-xs font-bold text-brand-600 mb-1">Feature {i+1}</label>
-               <input value={feat.title} onChange={(e) => updateHomeFeature(i, 'title', e.target.value)} className="w-full px-3 py-2 border rounded-lg mb-2" placeholder="Title" />
-               <textarea value={feat.desc} onChange={(e) => updateHomeFeature(i, 'desc', e.target.value)} className="w-full px-3 py-2 border rounded-lg" placeholder="Description" rows={2} />
-             </div>
-          ))}
-       </AccordionSection>
-    </div>
-  );
+          <div className="pt-4 pb-2 px-4 text-xs font-bold text-brand-500 uppercase tracking-wider">Data</div>
+          
+           {hasPermission('soil-lab') && (
+            <button onClick={() => setActiveTab('soil-lab')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'soil-lab' ? 'bg-brand-800 text-white' : 'hover:bg-brand-800/50'}`}>
+              <FlaskConical className="w-5 h-5 mr-3" /> Soil Lab
+            </button>
+          )}
+           {hasPermission('marketing') && (
+            <button onClick={() => setActiveTab('marketing')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'marketing' ? 'bg-brand-800 text-white' : 'hover:bg-brand-800/50'}`}>
+              <Megaphone className="w-5 h-5 mr-3" /> Marketing
+            </button>
+          )}
 
-  const renderAboutTab = () => (
-    <div>
-      <AccordionSection title="Hero & Story" defaultOpen>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Hero Title</label>
-            <input value={data.about.heroTitle} onChange={(e) => updateAbout('heroTitle', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Story Content</label>
-            <textarea value={data.about.story} onChange={(e) => updateAbout('story', e.target.value)} rows={8} className="w-full px-3 py-2 border rounded-lg" />
-          </div>
-        </div>
-      </AccordionSection>
+          <div className="pt-4 pb-2 px-4 text-xs font-bold text-brand-500 uppercase tracking-wider">System</div>
 
-      <AccordionSection title="Team Members">
-        <div className="space-y-6">
-          {data.about.team.map(member => (
-            <div key={member.id} className="bg-earth-50 p-4 rounded-lg border border-earth-100">
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Name</label>
-                   <input value={member.name} onChange={(e) => updateTeamMember(member.id, 'name', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-                 </div>
-                 <div>
-                   <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Role</label>
-                   <input value={member.role} onChange={(e) => updateTeamMember(member.id, 'role', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-                 </div>
-                 <div className="col-span-2">
-                   <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Bio</label>
-                   <textarea value={member.bio} onChange={(e) => updateTeamMember(member.id, 'bio', e.target.value)} rows={2} className="w-full px-3 py-2 border rounded-lg" />
-                 </div>
-               </div>
-            </div>
-          ))}
-        </div>
-      </AccordionSection>
-    </div>
-  );
+          {hasPermission('users') && (
+            <button onClick={() => setActiveTab('users')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'users' ? 'bg-brand-800 text-white' : 'hover:bg-brand-800/50'}`}>
+              <Users className="w-5 h-5 mr-3" /> Users
+            </button>
+          )}
+           {hasPermission('settings') && (
+            <button onClick={() => setActiveTab('settings')} className={`w-full flex items-center px-4 py-3 rounded-lg transition-colors ${activeTab === 'settings' ? 'bg-brand-800 text-white' : 'hover:bg-brand-800/50'}`}>
+              <Database className="w-5 h-5 mr-3" /> Settings & Data
+            </button>
+          )}
+        </nav>
 
-  const renderServicesTab = () => (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="font-bold text-brand-900">Manage Services</h3>
-        <button onClick={addService} className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-brand-700">Add Service</button>
-      </div>
-      <div className="grid grid-cols-1 gap-6">
-        {data.servicesPage.items.map(service => (
-          <div key={service.id} className="bg-white border border-earth-200 rounded-xl p-6 shadow-sm">
-             <div className="flex justify-between items-start mb-4">
-               <input value={service.title} onChange={(e) => updateService(service.id, 'title', e.target.value)} className="font-bold text-lg text-brand-900 border-none focus:ring-0 p-0 w-full" />
-               <button onClick={() => deleteService(service.id)} className="text-red-400 hover:text-red-600"><Trash2 className="w-5 h-5" /></button>
-             </div>
-             <div className="space-y-3">
-               <div>
-                  <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Short Description</label>
-                  <textarea value={service.description} onChange={(e) => updateService(service.id, 'description', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" rows={2} />
-               </div>
-               <div>
-                  <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Full Details (Modal)</label>
-                  <textarea value={service.details} onChange={(e) => updateService(service.id, 'details', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" rows={4} />
-               </div>
-               <div>
-                  <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Price</label>
-                  <input value={service.price} onChange={(e) => updateService(service.id, 'price', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm" />
-               </div>
-             </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+        <div className="p-4 border-t border-brand-800">
+           <button onClick={handleLogout} className="w-full flex items-center px-4 py-2 text-brand-300 hover:text-white transition-colors">
+              <LogOut className="w-5 h-5 mr-3" /> Logout
+           </button>
+        </div>
+      </aside>
 
-  const renderContactTab = () => (
-    <div className="bg-white p-6 rounded-xl border border-earth-200">
-      <h3 className="font-bold text-brand-900 mb-6">Contact Information</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Address</label>
-          <input value={data.contact.address} onChange={(e) => updateContact('address', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">City/State/Zip</label>
-          <input value={data.contact.city} onChange={(e) => updateContact('city', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Email</label>
-          <input value={data.contact.email} onChange={(e) => updateContact('email', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-        </div>
-        <div>
-          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Phone</label>
-          <input value={data.contact.phone} onChange={(e) => updateContact('phone', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-        </div>
-        <div className="md:col-span-2">
-           <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Google Maps Embed URL</label>
-           <input value={data.contact.mapUrl} onChange={(e) => updateContact('mapUrl', e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-        </div>
-      </div>
-    </div>
-  );
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Topbar */}
+        <header className="bg-white border-b border-earth-200 h-16 flex items-center justify-between px-6 shadow-sm z-10">
+           <h1 className="text-xl font-bold text-brand-900 capitalize flex items-center">
+              {activeTab ? activeTab.replace('-', ' ') : 'Dashboard'}
+           </h1>
+           <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => onNavigate(Page.HOME)}
+                className="text-sm font-medium text-brand-600 hover:text-brand-800 mr-4"
+              >
+                View Live Site
+              </button>
+              <div className="h-8 w-8 bg-brand-100 rounded-full flex items-center justify-center text-brand-700 font-bold">
+                 {currentUser.username[0].toUpperCase()}
+              </div>
+           </div>
+        </header>
 
-  const renderSettingsTab = () => (
-      <div className="animate-in fade-in">
-          <div className="grid grid-cols-1 gap-8">
-              {/* Database Management */}
-              <div className="bg-white p-8 rounded-xl border border-earth-200 shadow-sm">
-                 <div className="flex items-center mb-6 text-brand-700">
-                    <Database className="w-6 h-6 mr-3" />
-                    <h3 className="text-xl font-bold text-brand-900">Database Management</h3>
-                 </div>
-                 <p className="text-earth-600 mb-8 leading-relaxed max-w-2xl">
-                    Manage your website data. You can download a full backup of all content, users, and logs, or restore from a previous backup.
-                    This acts as your primary database control.
-                 </p>
+        {/* Scrollable Area */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+           {activeTab === 'dashboard' && hasPermission('dashboard') && renderDashboard()}
+
+           {activeTab === 'marketing' && hasPermission('marketing') && renderMarketingTab()}
+           
+           {activeTab === 'soil-lab' && hasPermission('soil-lab') && renderSoilLabTab()}
+
+           {activeTab === 'home' && hasPermission('home') && (
+              <div className="max-w-4xl space-y-8 animate-in fade-in">
+                 <AccordionSection title="Hero Section" defaultOpen>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-earth-700 mb-1">Hero Title</label>
+                            <input value={data.home.heroTitle} onChange={(e) => updateHome('heroTitle', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-earth-700 mb-1">Subtitle</label>
+                            <textarea value={data.home.heroSubtitle} onChange={(e) => updateHome('heroSubtitle', e.target.value)} rows={3} className="w-full px-4 py-2 border border-earth-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-earth-700 mb-1">Background Image URL</label>
+                            <input value={data.home.heroImage} onChange={(e) => updateHome('heroImage', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg focus:ring-2 focus:ring-brand-500 outline-none" />
+                        </div>
+                    </div>
+                 </AccordionSection>
+
+                 <AccordionSection title="Features Grid">
+                    {data.home.features.map((feature, idx) => (
+                        <div key={idx} className="mb-6 p-4 bg-earth-50 rounded-lg border border-earth-200">
+                            <h4 className="font-bold text-sm text-brand-600 mb-3 uppercase">Feature {idx + 1}</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input value={feature.title} onChange={(e) => updateHomeFeature(idx, 'title', e.target.value)} className="px-3 py-2 border rounded" placeholder="Title" />
+                                <select value={feature.iconName} onChange={(e) => updateHomeFeature(idx, 'iconName', e.target.value)} className="px-3 py-2 border rounded">
+                                    <option value="Leaf">Leaf</option>
+                                    <option value="Truck">Truck</option>
+                                    <option value="Users">Users</option>
+                                </select>
+                                <textarea value={feature.desc} onChange={(e) => updateHomeFeature(idx, 'desc', e.target.value)} className="md:col-span-2 px-3 py-2 border rounded" rows={2} placeholder="Description" />
+                            </div>
+                        </div>
+                    ))}
+                 </AccordionSection>
                  
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="bg-earth-50 p-6 rounded-xl border border-earth-200">
-                        <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mb-4">
-                            <Download className="w-6 h-6" />
-                        </div>
-                        <h4 className="font-bold text-brand-900 mb-2">Export Database</h4>
-                        <p className="text-sm text-earth-500 mb-6">Download a JSON file containing all website data.</p>
-                        <button 
-                            onClick={exportDatabase}
-                            className="w-full py-3 bg-white border border-brand-200 text-brand-800 font-bold rounded-lg hover:bg-brand-50 transition-colors shadow-sm flex items-center justify-center"
-                        >
-                            <FileText className="w-4 h-4 mr-2" /> Download Backup
-                        </button>
-                    </div>
-
-                    <div className="bg-earth-50 p-6 rounded-xl border border-earth-200">
-                        <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4">
-                            <UploadIcon className="w-6 h-6" />
-                        </div>
-                        <h4 className="font-bold text-brand-900 mb-2">Import Database</h4>
-                        <p className="text-sm text-earth-500 mb-6">Restore from a previously exported JSON file.</p>
-                        <div className="relative">
-                            <button 
-                                onClick={() => dbFileInputRef.current?.click()}
-                                className="w-full py-3 bg-brand-600 text-white font-bold rounded-lg hover:bg-brand-700 transition-colors shadow-sm flex items-center justify-center"
-                            >
-                                <UploadIcon className="w-4 h-4 mr-2" /> Upload Backup
-                            </button>
-                            <input 
-                                type="file" 
-                                ref={dbFileInputRef} 
-                                className="hidden" 
-                                accept=".json"
-                                onChange={importDatabase}
-                            />
-                        </div>
-                    </div>
-                 </div>
-
-                 <div className="mt-8 pt-8 border-t border-earth-100">
-                    <h4 className="font-bold text-red-700 mb-4 text-sm uppercase flex items-center">
-                        <Shield className="w-4 h-4 mr-2" /> Danger Zone
-                    </h4>
-                    <button 
-                        onClick={() => {
-                            if(confirm("Are you sure? This will delete ALL data including users, blogs, and stats. This cannot be undone.")) {
-                                resetData();
-                                window.location.reload();
-                            }
-                        }}
-                        className="px-6 py-2 bg-red-50 text-red-600 font-bold rounded-lg hover:bg-red-100 border border-red-200 text-sm"
-                    >
-                        Reset Application Data
+                 <div className="flex justify-end pt-4">
+                    <button onClick={handleSave} className="bg-brand-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-brand-700 flex items-center">
+                        <Save className="w-5 h-5 mr-2" /> Save Changes
                     </button>
                  </div>
               </div>
-          </div>
-      </div>
-  );
+           )}
 
-  // --- Main Layout ---
-  const sidebarItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, role: ['admin', 'manager'] },
-    { id: 'marketing', label: 'Marketing', icon: Megaphone, role: ['admin', 'manager'] },
-    { id: 'home', label: 'Home Page', icon: Layout, role: ['admin', 'manager'] },
-    { id: 'about', label: 'About Us', icon: Users, role: ['admin', 'manager'] },
-    { id: 'services', label: 'Services', icon: Briefcase, role: ['admin', 'manager'] },
-    { id: 'soil-lab', label: 'Soil Lab History', icon: FlaskConical, role: ['admin', 'manager'] },
-    { id: 'blog', label: 'Blog Manager', icon: BookOpen, role: ['admin', 'manager', 'editor'] },
-    { id: 'contact', label: 'Contact Info', icon: Phone, role: ['admin', 'manager'] },
-    { id: 'users', label: 'User Management', icon: Shield, role: ['admin'] },
-    { id: 'settings', label: 'Settings & Data', icon: Database, role: ['admin'] },
-  ];
+           {activeTab === 'about' && hasPermission('about') && (
+              <div className="max-w-4xl space-y-8 animate-in fade-in">
+                 <AccordionSection title="Our Story" defaultOpen>
+                    <div className="space-y-4">
+                        <input value={data.about.heroTitle} onChange={(e) => updateAbout('heroTitle', e.target.value)} className="w-full px-4 py-2 border rounded-lg font-bold text-lg mb-2" placeholder="Page Title" />
+                        <textarea value={data.about.intro} onChange={(e) => updateAbout('intro', e.target.value)} className="w-full px-4 py-2 border rounded-lg" rows={2} placeholder="Intro text" />
+                        <div className="border-t border-earth-200 pt-4 mt-4">
+                            <label className="block text-sm font-bold text-earth-700 mb-1">Main Story Content</label>
+                            <textarea value={data.about.story} onChange={(e) => updateAbout('story', e.target.value)} className="w-full px-4 py-2 border rounded-lg h-64" />
+                        </div>
+                    </div>
+                 </AccordionSection>
 
-  return (
-    <div className="min-h-screen bg-earth-50 flex">
-      <SEO title="Admin Dashboard - Mothercrop" description="Manage your website content." />
-      
-      {/* Sidebar */}
-      <div className="w-64 bg-brand-900 text-brand-100 flex-shrink-0 flex flex-col sticky top-0 h-screen">
-        <div className="p-6 border-b border-brand-800">
-          <h2 className="text-xl font-serif font-bold text-white tracking-wide">Mothercrop</h2>
-          <p className="text-xs text-brand-400 mt-1 uppercase tracking-wider font-bold">CMS Panel</p>
-        </div>
-        
-        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {sidebarItems.filter(item => item.role.includes(currentUser.role)).map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id as Tab)}
-                className={`w-full flex items-center px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                  activeTab === item.id 
-                    ? 'bg-brand-700 text-white shadow-md' 
-                    : 'hover:bg-brand-800 hover:text-white'
-                }`}
-              >
-                <Icon className="w-5 h-5 mr-3" />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-brand-800 bg-brand-900">
-           <div className="flex items-center mb-4 px-2">
-              <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center text-white font-bold mr-3">
-                 {currentUser.username[0].toUpperCase()}
+                 <AccordionSection title="Team Members">
+                    {data.about.team.map((member) => (
+                        <div key={member.id} className="flex gap-4 mb-6 p-4 bg-earth-50 rounded-lg border border-earth-200 items-start">
+                            <img src={member.imageUrl} className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm" alt={member.name} />
+                            <div className="flex-1 space-y-2">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input value={member.name} onChange={(e) => updateTeamMember(member.id, 'name', e.target.value)} className="px-3 py-2 border rounded" placeholder="Name" />
+                                    <input value={member.role} onChange={(e) => updateTeamMember(member.id, 'role', e.target.value)} className="px-3 py-2 border rounded" placeholder="Role" />
+                                </div>
+                                <textarea value={member.bio} onChange={(e) => updateTeamMember(member.id, 'bio', e.target.value)} className="w-full px-3 py-2 border rounded" rows={2} placeholder="Bio" />
+                            </div>
+                        </div>
+                    ))}
+                 </AccordionSection>
+                 <div className="flex justify-end pt-4">
+                    <button onClick={handleSave} className="bg-brand-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-brand-700 flex items-center">
+                        <Save className="w-5 h-5 mr-2" /> Save Changes
+                    </button>
+                 </div>
               </div>
-              <div>
-                 <p className="text-sm font-bold text-white">{currentUser.username}</p>
-                 <p className="text-xs text-brand-400 capitalize">{currentUser.role}</p>
+           )}
+
+           {activeTab === 'services' && hasPermission('services') && (
+              <div className="max-w-4xl space-y-6 animate-in fade-in">
+                 <div className="flex justify-end mb-4">
+                    <button onClick={addService} className="bg-brand-600 text-white px-4 py-2 rounded-lg flex items-center font-bold text-sm shadow-sm hover:bg-brand-700">
+                        <Plus className="w-4 h-4 mr-2" /> Add New Service
+                    </button>
+                 </div>
+                 
+                 {data.servicesPage.items.map((service) => (
+                    <div key={service.id} className="bg-white border border-earth-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input value={service.title} onChange={(e) => updateService(service.id, 'title', e.target.value)} className="px-4 py-2 border rounded font-bold text-lg" placeholder="Service Title" />
+                                <input value={service.price} onChange={(e) => updateService(service.id, 'price', e.target.value)} className="px-4 py-2 border rounded text-brand-600 font-bold" placeholder="Price" />
+                            </div>
+                            <button onClick={() => deleteService(service.id)} className="ml-4 text-red-400 hover:text-red-600 p-2"><Trash2 className="w-5 h-5" /></button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Short Description</label>
+                                <textarea value={service.description} onChange={(e) => updateService(service.id, 'description', e.target.value)} className="w-full px-4 py-2 border rounded" rows={2} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Full Details (Modal Content)</label>
+                                <textarea value={service.details || ''} onChange={(e) => updateService(service.id, 'details', e.target.value)} className="w-full px-4 py-2 border rounded font-mono text-sm" rows={4} placeholder="Enter detailed description here..." />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Icon Name (Lucide React)</label>
+                                <select value={service.iconName} onChange={(e) => updateService(service.id, 'iconName', e.target.value)} className="px-4 py-2 border rounded w-full md:w-auto">
+                                    <option value="Sprout">Sprout</option>
+                                    <option value="ShoppingBasket">ShoppingBasket</option>
+                                    <option value="GraduationCap">GraduationCap</option>
+                                    <option value="Leaf">Leaf</option>
+                                    <option value="Truck">Truck</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                 ))}
+                 <div className="flex justify-end pt-4">
+                    <button onClick={handleSave} className="bg-brand-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-brand-700 flex items-center">
+                        <Save className="w-5 h-5 mr-2" /> Save Changes
+                    </button>
+                 </div>
               </div>
-           </div>
-           <button onClick={handleLogout} className="w-full flex items-center justify-center px-4 py-2 bg-brand-800 hover:bg-brand-700 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors">
-             <LogOut className="w-4 h-4 mr-2" /> Sign Out
-           </button>
+           )}
+
+           {activeTab === 'blog' && hasPermission('blog') && renderBlogEditor()}
+
+           {activeTab === 'contact' && hasPermission('contact') && (
+              <div className="max-w-2xl bg-white p-8 rounded-xl border border-earth-200 shadow-sm animate-in fade-in">
+                 <h3 className="text-xl font-bold text-brand-900 mb-6">Contact Information</h3>
+                 <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-bold text-earth-700 mb-1">Email Address</label>
+                        <input value={data.contact.email} onChange={(e) => updateContact('email', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-earth-700 mb-1">Phone Number</label>
+                        <input value={data.contact.phone} onChange={(e) => updateContact('phone', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-earth-700 mb-1">Street Address</label>
+                        <input value={data.contact.address} onChange={(e) => updateContact('address', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-earth-700 mb-1">City, State, Zip</label>
+                        <input value={data.contact.city} onChange={(e) => updateContact('city', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-earth-700 mb-1">Opening Hours</label>
+                        <input value={data.contact.hours} onChange={(e) => updateContact('hours', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-earth-700 mb-1">Google Maps Embed URL</label>
+                        <input value={data.contact.mapUrl} onChange={(e) => updateContact('mapUrl', e.target.value)} className="w-full px-4 py-2 border border-earth-300 rounded-lg text-sm text-earth-600" />
+                        <p className="text-xs text-earth-500 mt-1">Paste the "src" attribute from the Google Maps Embed iframe.</p>
+                    </div>
+                 </div>
+                 <div className="mt-8 flex justify-end">
+                    <button onClick={handleSave} className="bg-brand-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-brand-700 flex items-center">
+                        <Save className="w-5 h-5 mr-2" /> Save Info
+                    </button>
+                 </div>
+              </div>
+           )}
+
+           {activeTab === 'users' && hasPermission('users') && (
+              <div className="max-w-4xl animate-in fade-in">
+                 <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-200 mb-8">
+                    <h3 className="font-bold text-brand-900 mb-4">Add New User</h3>
+                    <div className="flex flex-col md:flex-row gap-4 items-end">
+                       <div className="flex-1 w-full">
+                          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Username</label>
+                          <input value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                       </div>
+                       <div className="flex-1 w-full">
+                          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Password</label>
+                          <input type="password" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} className="w-full px-3 py-2 border rounded" />
+                       </div>
+                       <div className="w-full md:w-48">
+                          <label className="block text-xs font-bold text-earth-500 uppercase mb-1">Role</label>
+                          <select value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as Role})} className="w-full px-3 py-2 border rounded bg-white">
+                             <option value="editor">Editor</option>
+                             <option value="manager">Manager</option>
+                             <option value="admin">Admin</option>
+                          </select>
+                       </div>
+                       <button onClick={addUser} className="bg-brand-600 text-white px-6 py-2 rounded font-bold hover:bg-brand-700 w-full md:w-auto h-10">Add User</button>
+                    </div>
+                 </div>
+
+                 <div className="bg-white rounded-xl shadow-sm border border-earth-200 overflow-hidden">
+                    <table className="w-full text-left">
+                       <thead className="bg-earth-50 border-b border-earth-200">
+                          <tr>
+                             <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase">Username</th>
+                             <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase">Role</th>
+                             <th className="px-6 py-3 text-xs font-bold text-earth-500 uppercase text-right">Actions</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-earth-100">
+                          {data.users.map(user => (
+                             <tr key={user.id}>
+                                <td className="px-6 py-4 font-medium text-brand-900">
+                                   {user.username} 
+                                   {user.id === currentUser.id && <span className="ml-2 text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">(You)</span>}
+                                </td>
+                                <td className="px-6 py-4 capitalize text-earth-600">{user.role}</td>
+                                <td className="px-6 py-4 text-right">
+                                   <button 
+                                     onClick={() => deleteUser(user.id)} 
+                                     className={`text-red-400 hover:text-red-600 ${user.id === currentUser.id ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                     disabled={user.id === currentUser.id}
+                                   >
+                                      <Trash2 className="w-5 h-5" />
+                                   </button>
+                                </td>
+                             </tr>
+                          ))}
+                       </tbody>
+                    </table>
+                 </div>
+              </div>
+           )}
+
+           {activeTab === 'settings' && hasPermission('settings') && (
+               <div className="max-w-2xl animate-in fade-in space-y-8">
+                   <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-200">
+                       <div className="flex items-center mb-4">
+                           <Database className="w-6 h-6 text-brand-600 mr-2" />
+                           <h3 className="text-xl font-bold text-brand-900">Data Management</h3>
+                       </div>
+                       <p className="text-earth-600 text-sm mb-6">
+                           Backup your entire website content (Posts, Users, Settings) or restore from a previous backup.
+                       </p>
+                       
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <button 
+                               onClick={exportDatabase}
+                               className="flex flex-col items-center justify-center p-6 border-2 border-brand-100 rounded-xl hover:bg-brand-50 hover:border-brand-300 transition-all group"
+                           >
+                               <Download className="w-8 h-8 text-brand-500 mb-2 group-hover:scale-110 transition-transform" />
+                               <span className="font-bold text-brand-900">Export Backup</span>
+                               <span className="text-xs text-earth-500 mt-1">Download JSON</span>
+                           </button>
+
+                           <div 
+                               onClick={() => dbFileInputRef.current?.click()}
+                               className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-earth-300 rounded-xl hover:bg-earth-50 hover:border-brand-400 transition-all cursor-pointer group"
+                           >
+                               <UploadIcon className="w-8 h-8 text-earth-400 mb-2 group-hover:text-brand-500 transition-colors" />
+                               <span className="font-bold text-earth-700 group-hover:text-brand-900">Import Backup</span>
+                               <span className="text-xs text-earth-500 mt-1">Restore JSON File</span>
+                               <input type="file" ref={dbFileInputRef} onChange={importDatabase} className="hidden" accept=".json" />
+                           </div>
+                       </div>
+                   </div>
+
+                   <div className="bg-red-50 p-6 rounded-xl border border-red-100">
+                       <h3 className="text-lg font-bold text-red-900 mb-2">Danger Zone</h3>
+                       <p className="text-sm text-red-700 mb-4">Irreversibly clear all data and reset to factory defaults.</p>
+                       <button 
+                           onClick={() => { if(confirm('Are you sure? This cannot be undone.')) resetData(); }}
+                           className="bg-white border border-red-200 text-red-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-red-600 hover:text-white transition-colors"
+                       >
+                           Reset All Data
+                       </button>
+                   </div>
+               </div>
+           )}
         </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto h-screen p-8">
-         <div className="max-w-5xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
-               <h1 className="text-3xl font-serif font-bold text-brand-900 capitalize">
-                 {activeTab?.replace('-', ' ') || 'Dashboard'}
-               </h1>
-               {activeTab !== 'dashboard' && activeTab !== 'blog' && activeTab !== 'users' && activeTab !== 'soil-lab' && activeTab !== 'marketing' && activeTab !== 'settings' && (
-                 <button onClick={handleSave} className="flex items-center bg-brand-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-brand-700 shadow-md transition-all hover:-translate-y-0.5">
-                   <Save className="w-4 h-4 mr-2" /> Save Changes
-                 </button>
-               )}
-            </div>
-
-            <div className="animate-in fade-in duration-500">
-               {activeTab === 'dashboard' && hasPermission('dashboard') && renderDashboard()}
-               {activeTab === 'marketing' && hasPermission('marketing') && renderMarketingTab()}
-               {activeTab === 'home' && hasPermission('home') && renderHomeTab()}
-               {activeTab === 'about' && hasPermission('about') && renderAboutTab()}
-               {activeTab === 'services' && hasPermission('services') && renderServicesTab()}
-               {activeTab === 'blog' && hasPermission('blog') && renderBlogEditor()}
-               {activeTab === 'contact' && hasPermission('contact') && renderContactTab()}
-               {activeTab === 'users' && hasPermission('users') && renderUsersTab()}
-               {activeTab === 'soil-lab' && hasPermission('soil-lab') && renderSoilLabTab()}
-               {activeTab === 'settings' && hasPermission('settings') && renderSettingsTab()}
-            </div>
-         </div>
-      </div>
+      </main>
     </div>
   );
 };

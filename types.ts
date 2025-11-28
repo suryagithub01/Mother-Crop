@@ -130,12 +130,19 @@ export interface TrafficStat {
   [pageName: string]: number;
 }
 
+export interface FertilizerPlan {
+  item: string;
+  quantity: string;
+  note: string;
+}
+
 export interface SoilAnalysisContent {
   type: string; // Soil Type OR Disease Name
   summary: string;
   issues: string[]; // Issues OR Symptoms
   fixes: string[]; // Fixes OR Treatments
   crops: string[]; // Recommended Crops OR Prevention Tips
+  fertilizer_plan?: FertilizerPlan[]; 
 }
 
 export interface SoilAnalysisResult {
@@ -149,6 +156,26 @@ export interface SoilAnalysisRecord extends SoilAnalysisResult {
   id: string;
   date: string;
   imageUrl?: string; // Optional to save space
+  location?: string;
+}
+
+export interface RotationSeason {
+  season: string;
+  crop: string;
+  family: string;
+  benefit: string;
+}
+
+export interface RotationYear {
+  year: number;
+  focus: string; // e.g. "Nitrogen Fixing"
+  schedule: RotationSeason[];
+}
+
+export interface CropRotationPlan {
+  scale: 'garden' | 'farm';
+  soilType: string;
+  years: RotationYear[];
 }
 
 export interface Notification {

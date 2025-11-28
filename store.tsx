@@ -236,7 +236,7 @@ interface DataContextType {
   resetData: () => void;
   logPageVisit: (pageName: string) => void;
   saveChatSession: (sessionId: string, messages: ChatMessage[]) => void;
-  saveSoilAnalysis: (result: SoilAnalysisResult) => void;
+  saveSoilAnalysis: (result: SoilAnalysisResult & { location?: string }) => void;
   addSubscriber: (email: string) => void;
   notifications: Notification[];
   showNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
@@ -386,7 +386,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
      });
   };
 
-  const saveSoilAnalysis = (result: SoilAnalysisResult) => {
+  const saveSoilAnalysis = (result: SoilAnalysisResult & { location?: string }) => {
     setData(prev => {
       const newRecord: SoilAnalysisRecord = {
         ...result,
