@@ -89,8 +89,7 @@ export const SoilAnalysis: React.FC = () => {
           setIsLocating(true);
           navigator.geolocation.getCurrentPosition(
               (position) => {
-                  // In a real app, reverse geocode here. We'll simulate it.
-                  setLocation(`${position.coords.latitude.toFixed(2)}, ${position.coords.longitude.toFixed(2)} (Simulated Region)`);
+                  setLocation(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
                   setIsLocating(false);
               },
               (err) => {
@@ -127,6 +126,21 @@ export const SoilAnalysis: React.FC = () => {
     setIsAnalyzing(true);
     setError(null);
 
+    // Auto-capture location if not set
+    let activeLocation = location;
+    if (activeLocation === 'Unknown' || !activeLocation) {
+        try {
+            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+                if (!navigator.geolocation) reject("No geolocation");
+                navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+            });
+            activeLocation = `${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
+            setLocation(activeLocation);
+        } catch (e) {
+            console.warn("Auto-location skipped", e);
+        }
+    }
+
     try {
       const apiKey = process.env.API_KEY || '';
       if (!apiKey) {
@@ -144,7 +158,7 @@ export const SoilAnalysis: React.FC = () => {
       if (mode === 'soil') {
         prompt = `
           You are an expert Agronomist. Analyze this soil image.
-          Context: Farm Size: ${farmSize} ${farmUnit}, Location: ${location}.
+          Context: Farm Size: ${farmSize} ${farmUnit}, Location: ${activeLocation}.
           Task:
           1. Analyze soil type, moisture, and potential issues.
           2. Generate a report in ENGLISH and HINDI.
@@ -175,6 +189,7 @@ export const SoilAnalysis: React.FC = () => {
       } else {
         prompt = `
           You are an expert Plant Pathologist. Analyze this plant/leaf image.
+          Context: Location: ${activeLocation}.
           Task:
           1. Identify plant and disease/pest.
           2. Generate report in ENGLISH and HINDI.
@@ -230,7 +245,7 @@ export const SoilAnalysis: React.FC = () => {
         
         setTimeout(() => {
             setResult(data);
-            saveSoilAnalysis({ ...data, location });
+            saveSoilAnalysis({ ...data, location: activeLocation });
             setIsAnalyzing(false);
         }, 800);
 
