@@ -7,6 +7,8 @@ export interface SEOData {
   keywords: string; // Comma separated
 }
 
+export type BlogStatus = 'published' | 'draft' | 'trash';
+
 export interface BlogPost {
   id: number;
   title: string;
@@ -17,7 +19,8 @@ export interface BlogPost {
   author: string;
   imageUrl: string;
   category: string;
-  status: 'published' | 'draft';
+  status: BlogStatus;
+  deletedAt?: string; // ISO Date string for auto-cleanup
   seo: SEOData;
 }
 
@@ -28,6 +31,17 @@ export interface Service {
   details?: string; // Extended description for the Learn More modal
   iconName: string;
   price?: string;
+}
+
+export interface KnowledgeResource {
+  id: number;
+  title: string;
+  type: 'video' | 'guide' | 'pdf';
+  category: string;
+  description: string;
+  url: string; // Video URL or Download Link
+  thumbnail?: string;
+  durationOrSize?: string; // e.g. "10 min" or "2.5 MB"
 }
 
 export interface TeamMember {
@@ -41,7 +55,7 @@ export interface TeamMember {
 export interface Testimonial {
   id: number;
   name: string;
-  role: string; // e.g., "CSA Member" or "Local Chef"
+  role: string; // e.g. "CSA Member" or "Local Chef"
   text: string;
   rating: number; // 1-5
 }
@@ -136,6 +150,19 @@ export interface FertilizerPlan {
   note: string;
 }
 
+export interface SoilComposition {
+  sand: number;
+  silt: number;
+  clay: number;
+}
+
+export interface SoilNutrients {
+  nitrogen: number; // 0-100 score
+  phosphorus: number; // 0-100 score
+  potassium: number; // 0-100 score
+  ph: number; // 0-14
+}
+
 export interface SoilAnalysisContent {
   type: string; // Soil Type OR Disease Name
   summary: string;
@@ -143,6 +170,8 @@ export interface SoilAnalysisContent {
   fixes: string[]; // Fixes OR Treatments
   crops: string[]; // Recommended Crops OR Prevention Tips
   fertilizer_plan?: FertilizerPlan[]; 
+  composition?: SoilComposition;
+  nutrients?: SoilNutrients;
 }
 
 export interface SoilAnalysisResult {
@@ -203,6 +232,7 @@ export interface SiteData {
   soilLabHistory: SoilAnalysisRecord[];
   testimonials: Testimonial[];
   subscribers: Subscriber[];
+  knowledgeResources: KnowledgeResource[];
 }
 
 export enum Page {
@@ -212,5 +242,6 @@ export enum Page {
   BLOG = 'BLOG',
   CONTACT = 'CONTACT',
   ADMIN = 'ADMIN',
-  SOIL_ANALYSIS = 'SOIL_ANALYSIS'
+  SOIL_ANALYSIS = 'SOIL_ANALYSIS',
+  KNOWLEDGE = 'KNOWLEDGE'
 }

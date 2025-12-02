@@ -1,24 +1,93 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Page, ChatMessage } from '../types';
-import { Menu, X, Leaf, Instagram, Facebook, Twitter, MessageSquare, Send, Sparkles, Sprout, Lock, FlaskConical, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { Menu, X, Leaf, Instagram, Facebook, Twitter, MessageSquare, Send, Sparkles, Sprout, Lock, FlaskConical, AlertCircle, CheckCircle, Info, GraduationCap } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useData } from '../store';
 
 // --- SEO Component ---
-export const SEO: React.FC<{title: string, description: string}> = ({title, description}) => {
+interface SEOProps {
+  title: string;
+  description: string;
+  image?: string;
+  type?: string;
+  schema?: object; // JSON-LD Schema
+}
+
+export const SEO: React.FC<SEOProps> = ({ 
+  title, 
+  description, 
+  image = "https://picsum.photos/id/429/1200/630", // Default OG Image
+  type = 'website',
+  schema 
+}) => {
     useEffect(() => {
+        // 1. Update Title
         document.title = title;
-        const metaDesc = document.querySelector('meta[name="description"]');
-        if (metaDesc) {
-            metaDesc.setAttribute('content', description);
-        } else {
-            const meta = document.createElement('meta');
-            meta.name = "description";
-            meta.content = description;
-            document.head.appendChild(meta);
+
+        // 2. Update Meta Description
+        let metaDesc = document.querySelector('meta[name="description"]');
+        if (!metaDesc) {
+            metaDesc = document.createElement('meta');
+            metaDesc.setAttribute('name', "description");
+            document.head.appendChild(metaDesc);
         }
-    }, [title, description]);
+        metaDesc.setAttribute('content', description);
+
+        // 3. Update Open Graph (Social Media)
+        const updateMeta = (name: string, content: string) => {
+            let tag = document.querySelector(`meta[property="${name}"]`);
+            if (!tag) {
+                tag = document.createElement('meta');
+                tag.setAttribute('property', name);
+                document.head.appendChild(tag);
+            }
+            tag.setAttribute('content', content);
+        };
+
+        updateMeta('og:title', title);
+        updateMeta('og:description', description);
+        updateMeta('og:image', image);
+        updateMeta('og:type', type);
+        updateMeta('og:url', window.location.href);
+        updateMeta('og:site_name', 'Mothercrop');
+
+        // 4. Update Twitter Card
+        const updateTwitter = (name: string, content: string) => {
+            let tag = document.querySelector(`meta[name="${name}"]`);
+            if (!tag) {
+                tag = document.createElement('meta');
+                tag.setAttribute('name', name);
+                document.head.appendChild(tag);
+            }
+            tag.setAttribute('content', content);
+        };
+
+        updateTwitter('twitter:card', 'summary_large_image');
+        updateTwitter('twitter:title', title);
+        updateTwitter('twitter:description', description);
+        updateTwitter('twitter:image', image);
+
+        // 5. JSON-LD Schema Markup
+        if (schema) {
+            let script = document.getElementById('json-ld-schema');
+            if (!script) {
+                script = document.createElement('script');
+                script.id = 'json-ld-schema';
+                script.setAttribute('type', 'application/ld+json');
+                document.head.appendChild(script);
+            }
+            script.textContent = JSON.stringify(schema);
+        }
+
+        return () => {
+             // Cleanup schema on unmount/change
+             const script = document.getElementById('json-ld-schema');
+             if (script) script.textContent = '';
+        };
+
+    }, [title, description, image, type, schema]);
+
     return null;
 }
 
@@ -71,6 +140,7 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
     { label: 'Home', page: Page.HOME },
     { label: 'About Us', page: Page.ABOUT },
     { label: 'Services', page: Page.SERVICES },
+    { label: 'Knowledge Hub', page: Page.KNOWLEDGE },
     { label: 'Soil Lab', page: Page.SOIL_ANALYSIS },
     { label: 'Blog', page: Page.BLOG },
     { label: 'Contact', page: Page.CONTACT },
@@ -85,7 +155,7 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
             className="flex items-center cursor-pointer group"
             onClick={() => onNavigate(Page.HOME)}
           >
-            <div className="bg-brand-600 p-2 rounded-lg group-hover:bg-brand-700 transition-colors shadow-sm">
+            <div className="bg-brand-600 p-2 rounded-lg transition-colors shadow-sm">
               <Leaf className="h-6 w-6 text-white" />
             </div>
             <span className="ml-3 text-xl font-bold text-brand-900 tracking-tight font-serif">Mothercrop</span>
@@ -102,6 +172,7 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
                 }`}
               >
                 {item.label === 'Soil Lab' && <FlaskConical className="w-4 h-4 mr-1.5" />}
+                {item.label === 'Knowledge Hub' && <GraduationCap className="w-4 h-4 mr-1.5" />}
                 {item.label}
                 {activePage === item.page && (
                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-brand-500 rounded-full transform scale-x-100 transition-transform"></span>
@@ -140,6 +211,7 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
                 }`}
               >
                  {item.label === 'Soil Lab' && <FlaskConical className="w-4 h-4 mr-2" />}
+                 {item.label === 'Knowledge Hub' && <GraduationCap className="w-4 h-4 mr-2" />}
                 {item.label}
               </button>
             ))}

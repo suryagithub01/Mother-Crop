@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SiteData, ChatMessage, SoilAnalysisResult, SoilAnalysisRecord, Notification, WeatherData, Subscriber } from './types';
+import { SiteData, ChatMessage, SoilAnalysisResult, SoilAnalysisRecord, Notification, WeatherData, Subscriber, KnowledgeResource } from './types';
 
 // Default Hardcoded Data (Initial State)
 const defaultData: SiteData = {
@@ -16,6 +16,7 @@ const defaultData: SiteData = {
     BLOG: 89,
     CONTACT: 34,
     SOIL_ANALYSIS: 12,
+    KNOWLEDGE: 55,
   },
   chatHistory: [
     {
@@ -54,6 +55,37 @@ const defaultData: SiteData = {
       role: "Home Gardener",
       text: "Used their Soil Lab service and Garden Consulting. They saved my dying tomato patch. The AI analysis was spot on!",
       rating: 4
+    }
+  ],
+  knowledgeResources: [
+    {
+        id: 1,
+        title: "Composting 101: Turning Waste to Gold",
+        type: "video",
+        category: "Soil Health",
+        description: "A 10-minute masterclass on creating the perfect compost pile ratio for your garden.",
+        url: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Placeholder
+        thumbnail: "https://picsum.photos/id/118/400/225",
+        durationOrSize: "10:45"
+    },
+    {
+        id: 2,
+        title: "Crop Rotation Planner Sheet",
+        type: "pdf",
+        category: "Planning",
+        description: "Downloadable template to track your 3-year crop rotation schedule.",
+        url: "#",
+        durationOrSize: "1.2 MB"
+    },
+    {
+        id: 3,
+        title: "Identifying Common Garden Pests",
+        type: "guide",
+        category: "Pest Control",
+        description: "Visual guide to aphids, hornworms, and beetles with organic solutions.",
+        url: "#",
+        thumbnail: "https://picsum.photos/id/139/400/225",
+        durationOrSize: "5 min read"
     }
   ],
   home: {
@@ -218,6 +250,45 @@ const defaultData: SiteData = {
         metaDescription: "Understand food labeling. We explain why Certified Organic matters and how 'Natural' labels can be misleading.",
         keywords: "organic food, natural food labels, USDA organic, healthy eating"
       }
+    },
+    {
+        id: 4,
+        title: "Understanding N-P-K: The Holy Trinity",
+        slug: "npk-explained",
+        excerpt: "Nitrogen, Phosphorus, Potassium. What do they actually do for your plants?",
+        content: "Draft content...",
+        date: "Nov 05, 2023",
+        author: "Sarah Jenkins",
+        category: "Gardening Tips",
+        imageUrl: "https://picsum.photos/id/299/800/600",
+        status: 'published',
+        seo: { metaTitle: "", metaDescription: "", keywords: "" }
+    },
+    {
+        id: 5,
+        title: "Winter Cover Crops Guide",
+        slug: "cover-crops",
+        excerpt: "Protect your soil this winter with rye, vetch, and clover.",
+        content: "Draft content...",
+        date: "Nov 12, 2023",
+        author: "Sarah Jenkins",
+        category: "Sustainability",
+        imageUrl: "https://picsum.photos/id/512/800/600",
+        status: 'published',
+        seo: { metaTitle: "", metaDescription: "", keywords: "" }
+    },
+    {
+        id: 6,
+        title: "Pest Control Without Poison",
+        slug: "organic-pest-control",
+        excerpt: "How to attract beneficial insects to fight your battles for you.",
+        content: "Draft content...",
+        date: "Nov 15, 2023",
+        author: "David Chen",
+        category: "Gardening Tips",
+        imageUrl: "https://picsum.photos/id/400/800/600",
+        status: 'published',
+        seo: { metaTitle: "", metaDescription: "", keywords: "" }
     }
   ],
   contact: {
@@ -291,15 +362,27 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const mergedSoilHistory = Array.isArray(parsed.soilLabHistory) ? parsed.soilLabHistory : defaultData.soilLabHistory;
         const mergedSubscribers = Array.isArray(parsed.subscribers) ? parsed.subscribers : defaultData.subscribers;
         const mergedTestimonials = Array.isArray(parsed.testimonials) ? parsed.testimonials : defaultData.testimonials;
+        const mergedKnowledge = Array.isArray(parsed.knowledgeResources) ? parsed.knowledgeResources : defaultData.knowledgeResources;
 
-        // Merge blog posts deeply
-        const mergedBlog = Array.isArray(parsed.blog) ? parsed.blog.map((p: any) => ({
+        // Merge blog posts deeply AND clean up trash older than 30 days
+        let mergedBlog = Array.isArray(parsed.blog) ? parsed.blog.map((p: any) => ({
             ...p,
             seo: p.seo || { metaTitle: p.title || '', metaDescription: p.excerpt || '', keywords: '' },
             slug: p.slug || (p.title ? p.title.toLowerCase().replace(/ /g, '-') : 'post'),
             content: p.content || p.excerpt || '',
-            status: p.status || 'published'
+            status: p.status || 'published',
+            deletedAt: p.deletedAt || undefined
         })) : defaultData.blog;
+        
+        // Auto-Clean Trash > 30 Days
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        mergedBlog = mergedBlog.filter((p: any) => {
+            if (p.status === 'trash' && p.deletedAt) {
+                const deletedDate = new Date(p.deletedAt).getTime();
+                return deletedDate > thirtyDaysAgo;
+            }
+            return true;
+        });
 
          // Merge services to include details
         const mergedServices = parsed.servicesPage ? {
@@ -325,7 +408,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             trafficStats: mergedTrafficStats,
             soilLabHistory: mergedSoilHistory,
             subscribers: mergedSubscribers,
-            testimonials: mergedTestimonials
+            testimonials: mergedTestimonials,
+            knowledgeResources: mergedKnowledge
         };
     });
   }

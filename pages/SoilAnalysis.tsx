@@ -1,9 +1,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Upload, Camera, FlaskConical, Sprout, AlertCircle, CheckCircle, Loader2, ChevronRight, Flower2, ScanLine, Download, MapPin, Volume2, History, RefreshCw, Calendar, ArrowRight } from 'lucide-react';
+import { Upload, Camera, FlaskConical, Sprout, AlertCircle, CheckCircle, Loader2, ChevronRight, Flower2, ScanLine, Download, MapPin, Volume2, History, RefreshCw, Calendar, ArrowRight, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
 import { useData } from '../store';
 import { SoilAnalysisResult, CropRotationPlan } from '../types';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { SEO } from '../components/Layout';
 
 type AnalysisMode = 'soil' | 'plant';
 
@@ -161,8 +163,10 @@ export const SoilAnalysis: React.FC = () => {
           Context: Farm Size: ${farmSize} ${farmUnit}, Location: ${activeLocation}.
           Task:
           1. Analyze soil type, moisture, and potential issues.
-          2. Generate a report in ENGLISH and HINDI.
-          3. Calculate exact organic fertilizer needs for the stated farm size.
+          2. ESTIMATE soil composition percentages (Sand, Silt, Clay) summing to 100.
+          3. ESTIMATE nutrient levels (Nitrogen, Phosphorus, Potassium) on scale 0-100, and pH (0-14).
+          4. Generate a report in ENGLISH and HINDI.
+          5. Calculate exact organic fertilizer needs for the stated farm size.
 
           Return strictly valid JSON:
           {
@@ -174,7 +178,9 @@ export const SoilAnalysis: React.FC = () => {
               "issues": string[],
               "fixes": string[],
               "crops": string[],
-              "fertilizer_plan": [{ "item": string, "quantity": string, "note": string }]
+              "fertilizer_plan": [{ "item": string, "quantity": string, "note": string }],
+              "composition": { "sand": number, "silt": number, "clay": number },
+              "nutrients": { "nitrogen": number, "phosphorus": number, "potassium": number, "ph": number }
             },
             "hi": {
               "type": string,
@@ -182,7 +188,9 @@ export const SoilAnalysis: React.FC = () => {
               "issues": string[],
               "fixes": string[],
               "crops": string[],
-              "fertilizer_plan": [{ "item": string, "quantity": string, "note": string }]
+              "fertilizer_plan": [{ "item": string, "quantity": string, "note": string }],
+              "composition": { "sand": number, "silt": number, "clay": number },
+              "nutrients": { "nitrogen": number, "phosphorus": number, "potassium": number, "ph": number }
             }
           }
         `;
@@ -327,8 +335,41 @@ export const SoilAnalysis: React.FC = () => {
 
   const currentContent = result ? result[language] : null;
 
+  // Chart Data Preparation
+  const compositionData = currentContent?.composition ? [
+    { name: 'Sand', value: currentContent.composition.sand, color: '#f59e0b' }, // Amber
+    { name: 'Silt', value: currentContent.composition.silt, color: '#3b82f6' }, // Blue
+    { name: 'Clay', value: currentContent.composition.clay, color: '#ef4444' }, // Red
+  ] : [];
+
+  const nutrientData = currentContent?.nutrients ? [
+    { name: 'N', value: currentContent.nutrients.nitrogen, full: 'Nitrogen' },
+    { name: 'P', value: currentContent.nutrients.phosphorus, full: 'Phosphorus' },
+    { name: 'K', value: currentContent.nutrients.potassium, full: 'Potassium' },
+  ] : [];
+
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Mothercrop Soil Lab",
+    "applicationCategory": "AgricultureApplication",
+    "operatingSystem": "Web",
+    "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+    },
+    "featureList": "Soil Analysis, Plant Disease Diagnosis, Crop Rotation Planning",
+    "screenshot": "https://picsum.photos/id/429/800/600"
+  };
+
   return (
     <div className="min-h-screen bg-earth-50">
+      <SEO 
+        title="AI Soil Lab & Plant Doctor - Mothercrop" 
+        description="Analyze your soil health and diagnose plant diseases instantly with our AI-powered tool. Get organic crop recommendations." 
+        schema={schema}
+      />
       <style>{`
         @keyframes scan {
           0% { top: 0%; opacity: 0; }
@@ -457,27 +498,18 @@ export const SoilAnalysis: React.FC = () => {
                                    <Loader2 className="w-8 h-8 text-brand-400 animate-spin" />
                                 </div>
                                 
-                                <h3 className="text-brand-300 font-bold text-lg mb-1 relative z-10 font-mono tracking-widest uppercase">
-                                  {language === 'hi' ? 'एआई विश्लेषण' : 'AI Analysis'}
-                                </h3>
+                                <h3 className="relative z-10 text-brand-400 font-mono text-xl font-bold mb-2 tracking-widest">{analysisProgress}%</h3>
                                 
-                                <div className="text-white font-mono text-xs mb-4 h-8 relative z-10 text-center flex items-center justify-center px-4 w-full">
-                                    <span className="animate-pulse">{analysisStatus}</span>
+                                {/* Status Text */}
+                                <div className="relative z-10 h-10 w-full flex items-center justify-center">
+                                    <p className="text-white/90 text-xs font-mono text-center animate-pulse">
+                                      {'>'} {analysisStatus}
+                                    </p>
                                 </div>
-                                
-                                {/* Sci-Fi Progress Bar */}
-                                <div className="w-full bg-earth-800 rounded-full h-1.5 overflow-hidden relative z-10 border border-earth-700">
-                                    <div 
-                                      className="bg-brand-500 h-full rounded-full transition-all duration-300 ease-out shadow-[0_0_10px_rgba(74,222,128,0.8)] relative" 
-                                      style={{ width: `${analysisProgress}%` }}
-                                    >
-                                        <div className="absolute right-0 top-0 bottom-0 w-2 bg-white/70 shadow-[0_0_5px_#fff]"></div>
-                                    </div>
-                                </div>
-                                <div className="flex justify-between w-full mt-2 text-[10px] text-brand-400 font-mono relative z-10 opacity-70">
-                                    <span>INIT</span>
-                                    <span>{analysisProgress}%</span>
-                                    <span>DONE</span>
+
+                                {/* Progress Bar */}
+                                <div className="relative z-10 w-full bg-gray-800 h-1 mt-4 rounded-full overflow-hidden">
+                                    <div className="h-full bg-brand-500 shadow-[0_0_10px_rgba(74,222,128,0.8)] transition-all duration-300" style={{ width: `${analysisProgress}%` }}></div>
                                 </div>
                             </div>
                         </div>
@@ -485,15 +517,11 @@ export const SoilAnalysis: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <div className="bg-white p-5 rounded-full shadow-md mb-4 group-hover:scale-110 transition-transform text-brand-500">
-                      <Upload className="w-10 h-10" />
+                    <div className="bg-brand-100 p-4 rounded-full mb-4 group-hover:bg-brand-200 transition-colors">
+                      <Upload className="w-8 h-8 text-brand-600" />
                     </div>
-                    <p className="text-earth-600 font-medium text-lg text-center px-4">
-                        {language === 'hi' 
-                          ? (mode === 'soil' ? 'मिट्टी की फोटो अपलोड करें' : 'पत्ती/पौधे की फोटो अपलोड करें') 
-                          : (mode === 'soil' ? 'Click to upload soil photo' : 'Click to upload plant/leaf photo')}
-                    </p>
-                    <p className="text-earth-400 text-sm mt-2">JPG, PNG</p>
+                    <p className="text-earth-600 font-medium">Click to Upload Photo</p>
+                    <p className="text-earth-400 text-sm mt-2">JPG, PNG (Max 5MB)</p>
                   </>
                 )}
                 <input 
@@ -501,291 +529,244 @@ export const SoilAnalysis: React.FC = () => {
                   ref={fileInputRef} 
                   className="hidden" 
                   accept="image/*"
-                  disabled={isAnalyzing}
                   onChange={handleImageUpload} 
                 />
               </div>
 
-              {selectedImage && !isAnalyzing && !result && (
+              {selectedImage && !result && !isAnalyzing && (
                 <button 
                   onClick={analyzeSample}
-                  className="w-full mt-6 py-4 bg-brand-600 text-white rounded-xl font-bold text-lg hover:bg-brand-700 transition-transform hover:-translate-y-1 shadow-lg shadow-brand-500/30 flex items-center justify-center"
+                  className="w-full mt-6 py-4 bg-brand-600 text-white rounded-xl font-bold text-lg hover:bg-brand-700 transition-all shadow-lg hover:shadow-brand-500/30 flex justify-center items-center"
                 >
-                  <ScanLine className="w-5 h-5 mr-2" />
-                  {language === 'hi' ? 'विश्लेषण शुरू करें' : 'Start Scan & Analysis'}
+                  <ScanLine className="w-6 h-6 mr-2" /> 
+                  Run {mode === 'soil' ? 'Full Analysis' : 'Diagnosis'}
                 </button>
               )}
-
-              {result && (
-                <div className="mt-6 text-center text-sm text-earth-500">
-                    <p>{language === 'hi' ? 'रिपोर्ट हिंदी और अंग्रेजी दोनों में उपलब्ध है। ऊपर टॉगल करें।' : 'Report generated in both English and Hindi. Toggle above to switch.'}</p>
-                </div>
-              )}
-
               {error && (
-                <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-center border border-red-200">
-                  <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-                  {error}
+                <div className="mt-4 p-4 bg-red-50 text-red-700 rounded-lg flex items-center">
+                   <AlertCircle className="w-5 h-5 mr-2" />
+                   {error}
                 </div>
               )}
             </div>
 
             {/* Right Column: Results */}
-            <div className={`transition-all duration-700 ${result ? 'opacity-100 translate-y-0' : 'opacity-50 translate-y-4 filter blur-[2px] pointer-events-none'}`}>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-brand-900 flex items-center">
-                  <Sprout className="w-6 h-6 mr-2 text-brand-600" />
-                  2. {mode === 'soil' ? 'Lab Report' : 'Doctor\'s Diagnosis'}
-                </h2>
-                
-                {result && (
-                    <div className="flex gap-2">
-                        <button 
-                          onClick={() => playAudio(currentContent?.summary || '')}
-                          className="flex items-center text-brand-600 hover:text-brand-800 text-sm font-bold bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-lg transition-colors border border-brand-200"
-                          title="Listen to Report"
-                        >
-                           <Volume2 className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={downloadReport}
-                          className="flex items-center text-brand-600 hover:text-brand-800 text-sm font-bold bg-brand-50 hover:bg-brand-100 px-3 py-2 rounded-lg transition-colors border border-brand-200"
-                          title="Download JSON Record"
-                        >
-                          <Download className="w-4 h-4 mr-2" /> Export
-                        </button>
-                    </div>
-                )}
-              </div>
-
-              {currentContent && result ? (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  {/* Score Card */}
-                  <div className="flex items-center p-6 bg-gradient-to-br from-brand-50 to-white rounded-2xl border border-brand-100 shadow-sm relative overflow-hidden">
-                     <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
-                        {mode === 'soil' ? <FlaskConical className="w-32 h-32 text-brand-600" /> : <Flower2 className="w-32 h-32 text-brand-600" />}
-                     </div>
-                     <div className={`relative z-10 w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold text-white shadow-lg border-4 border-white ${result.score > 70 ? 'bg-green-500' : result.score > 40 ? 'bg-yellow-500' : 'bg-red-500'}`}>
-                       {result.score}
-                     </div>
-                     <div className="ml-8 relative z-10">
-                       <p className="text-xs text-brand-600 uppercase font-bold tracking-wider mb-1">
-                           {language === 'hi' ? 'स्वास्थ्य स्कोर' : 'Health Score'}
-                       </p>
-                       <h3 className="text-2xl font-serif font-bold text-brand-900">{currentContent.type}</h3>
-                       {/* Timeline Graph Placeholder for Repeat Users */}
-                       <div className="mt-2 flex items-center text-xs text-brand-400">
-                          <History className="w-3 h-3 mr-1" /> 
-                          {language === 'hi' ? 'इतिहास में सहेजा गया' : 'Saved to timeline'}
-                       </div>
-                     </div>
-                  </div>
-
-                  <div className="bg-white p-1">
-                    <h4 className="font-bold text-brand-800 mb-2 flex items-center text-lg">
-                        {language === 'hi' ? 'विश्लेषण सारांश' : (mode === 'soil' ? 'Analysis Summary' : 'Diagnosis Summary')}
-                    </h4>
-                    <p className="text-earth-700 leading-relaxed text-base border-l-4 border-brand-200 pl-4">
-                      {currentContent.summary}
-                    </p>
-                  </div>
-
-                  {/* Fertilizer Calculator (Soil Mode Only) */}
-                  {mode === 'soil' && currentContent.fertilizer_plan && (
-                      <div className="bg-blue-50 p-5 rounded-xl border border-blue-100">
-                          <h4 className="font-bold text-blue-900 text-sm mb-3 flex items-center uppercase tracking-wide">
-                              {language === 'hi' ? 'स्मार्ट फर्टिलाइजर कैलकुलेटर' : 'Smart Fertilizer Calculator'}
-                              <span className="ml-2 text-xs normal-case bg-blue-200 px-2 py-0.5 rounded-full text-blue-800">For {farmSize} {farmUnit}</span>
-                          </h4>
-                          <div className="space-y-2">
-                              {currentContent.fertilizer_plan.map((plan, i) => (
-                                  <div key={i} className="flex justify-between items-center bg-white p-3 rounded-lg border border-blue-100 shadow-sm">
-                                      <div className="font-bold text-blue-900">{plan.item}</div>
-                                      <div className="text-right">
-                                          <div className="font-bold text-brand-600">{plan.quantity}</div>
-                                          <div className="text-xs text-earth-400">{plan.note}</div>
-                                      </div>
-                                  </div>
-                              ))}
+            <div className="bg-earth-50 rounded-xl p-6 md:p-8 min-h-[400px] flex flex-col justify-center border border-earth-100">
+              {!result ? (
+                <div className="text-center text-earth-400">
+                   <Sprout className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                   <p className="text-lg">Upload an image to see the {mode === 'soil' ? 'agronomist' : 'pathology'} report.</p>
+                </div>
+              ) : currentContent ? (
+                <div className="space-y-8 animate-in slide-in-from-bottom duration-500">
+                   
+                   {/* Score Header */}
+                   <div className="flex justify-between items-start">
+                      <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="px-3 py-1 bg-brand-100 text-brand-700 rounded-full text-xs font-bold uppercase tracking-wide">
+                                {currentContent.type}
+                            </span>
+                            <span className="px-3 py-1 bg-earth-200 text-earth-700 rounded-full text-xs font-bold uppercase tracking-wide flex items-center">
+                                <MapPin className="w-3 h-3 mr-1" /> {location}
+                            </span>
+                          </div>
+                          <h2 className="text-3xl font-serif font-bold text-brand-900 mt-3 mb-2">
+                             Health Score: <span className={result.score > 70 ? 'text-green-600' : result.score > 40 ? 'text-yellow-600' : 'text-red-600'}>{result.score}/100</span>
+                          </h2>
+                          <div className="w-full bg-earth-200 h-2 rounded-full max-w-xs mt-2">
+                             <div className={`h-2 rounded-full ${result.score > 70 ? 'bg-green-500' : result.score > 40 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${result.score}%` }}></div>
                           </div>
                       </div>
-                  )}
+                      <div className="flex space-x-2">
+                         <button onClick={() => playAudio(currentContent.summary)} className="p-2 bg-white border border-earth-200 rounded-full hover:bg-brand-50 text-brand-600" title="Listen">
+                             <Volume2 className="w-5 h-5" />
+                         </button>
+                         <button onClick={downloadReport} className="p-2 bg-white border border-earth-200 rounded-full hover:bg-brand-50 text-brand-600" title="Export JSON">
+                             <Download className="w-5 h-5" />
+                         </button>
+                      </div>
+                   </div>
 
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="p-5 bg-red-50 rounded-xl border border-red-100">
-                      <h5 className="font-bold text-red-800 text-sm mb-3 flex items-center uppercase tracking-wide">
-                          <AlertCircle className="w-4 h-4 mr-2"/> 
-                          {language === 'hi' ? 'समस्याएँ' : (mode === 'soil' ? 'Detected Issues' : 'Symptoms Detected')}
-                      </h5>
-                      <ul className="space-y-2">
-                        {currentContent.issues.map((issue, i) => (
-                            <li key={i} className="flex items-start text-red-700 text-sm">
-                                <span className="w-1.5 h-1.5 bg-red-400 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-                                {issue}
-                            </li>
-                        ))}
-                      </ul>
-                    </div>
-                    
-                    <div className="p-5 bg-green-50 rounded-xl border border-green-100">
-                      <h5 className="font-bold text-green-800 text-sm mb-3 flex items-center uppercase tracking-wide">
-                          <CheckCircle className="w-4 h-4 mr-2"/> 
-                          {language === 'hi' ? 'सुझाव' : (mode === 'soil' ? 'Recommended Fixes' : 'Treatment Plan')}
-                      </h5>
-                      <ul className="space-y-2">
-                        {currentContent.fixes.map((fix, i) => (
-                            <li key={i} className="flex items-start text-green-800 text-sm">
-                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
-                                {fix}
-                            </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                   {/* Summary */}
+                   <div className="bg-white p-6 rounded-xl border border-earth-200 shadow-sm">
+                      <p className="text-earth-700 leading-relaxed text-lg italic">"{currentContent.summary}"</p>
+                   </div>
+                   
+                   {/* VISUALIZATIONS SECTION (Only for Soil Mode) */}
+                   {mode === 'soil' && currentContent.composition && (
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                           <div className="bg-white p-4 rounded-xl border border-earth-200 shadow-sm">
+                               <h4 className="font-bold text-earth-900 mb-4 flex items-center text-sm uppercase"><PieChartIcon className="w-4 h-4 mr-2" /> Composition</h4>
+                               <div className="h-48 w-full">
+                                   <ResponsiveContainer width="100%" height="100%">
+                                       <PieChart>
+                                           <Pie data={compositionData} cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={5} dataKey="value">
+                                               {compositionData.map((entry, index) => (
+                                                   <Cell key={`cell-${index}`} fill={entry.color} />
+                                               ))}
+                                           </Pie>
+                                           <Tooltip />
+                                           <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                                       </PieChart>
+                                   </ResponsiveContainer>
+                               </div>
+                           </div>
+                           <div className="bg-white p-4 rounded-xl border border-earth-200 shadow-sm">
+                               <h4 className="font-bold text-earth-900 mb-4 flex items-center text-sm uppercase"><BarChart3 className="w-4 h-4 mr-2" /> Nutrients (0-100)</h4>
+                               <div className="h-48 w-full">
+                                   <ResponsiveContainer width="100%" height="100%">
+                                       <BarChart data={nutrientData}>
+                                           <XAxis dataKey="name" tick={{fontSize: 12}} />
+                                           <YAxis hide />
+                                           <Tooltip cursor={{fill: '#f0fdf4'}} />
+                                           <Bar dataKey="value" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                                       </BarChart>
+                                   </ResponsiveContainer>
+                                   <div className="text-center mt-2 text-xs font-bold text-earth-500">pH Level: {currentContent.nutrients?.ph}</div>
+                               </div>
+                           </div>
+                       </div>
+                   )}
 
-                  <div>
-                    <h4 className="font-bold text-brand-800 mb-3 flex items-center">
-                        <Sprout className="w-4 h-4 mr-2" /> 
-                        {language === 'hi' ? 'सुझाव' : (mode === 'soil' ? 'Recommended Crops' : 'Prevention & General Care')}
-                    </h4>
-                    <div className="flex flex-col gap-2">
-                      {currentContent.crops.map((crop, i) => (
-                        <div key={i} className="p-3 bg-brand-50 text-brand-900 rounded-lg text-sm font-medium border border-brand-200 shadow-sm flex items-start">
-                           <ChevronRight className="w-4 h-4 mr-2 text-brand-500 flex-shrink-0 mt-0.5" /> 
-                           <span>{crop}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                   {/* Diagnosis/Issues */}
+                   <div>
+                      <h3 className="font-bold text-brand-900 mb-3 flex items-center">
+                         <AlertCircle className="w-5 h-5 mr-2 text-red-500" /> 
+                         {mode === 'soil' ? 'Identified Issues' : 'Symptoms Detected'}
+                      </h3>
+                      <div className="space-y-2">
+                         {currentContent.issues.map((issue, i) => (
+                            <div key={i} className="flex items-start bg-red-50 p-3 rounded-lg text-red-800 text-sm">
+                               <span className="w-1.5 h-1.5 bg-red-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
+                               {issue}
+                            </div>
+                         ))}
+                      </div>
+                   </div>
+
+                   {/* Solutions */}
+                   <div>
+                      <h3 className="font-bold text-brand-900 mb-3 flex items-center">
+                         <CheckCircle className="w-5 h-5 mr-2 text-green-500" /> 
+                         {mode === 'soil' ? 'Recommended Amendments' : 'Treatment Plan'}
+                      </h3>
+                      <div className="space-y-2">
+                         {currentContent.fixes.map((fix, i) => (
+                            <div key={i} className="flex items-start bg-green-50 p-3 rounded-lg text-green-800 text-sm">
+                               <span className="w-1.5 h-1.5 bg-green-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
+                               {fix}
+                            </div>
+                         ))}
+                      </div>
+                   </div>
+                   
+                   {/* Fertilizer Plan (Soil Only) */}
+                   {mode === 'soil' && currentContent.fertilizer_plan && (
+                       <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                           <h3 className="font-bold text-blue-900 mb-3">Smart Fertilizer Plan ({farmSize} {farmUnit})</h3>
+                           <div className="space-y-2">
+                               {currentContent.fertilizer_plan.map((plan, i) => (
+                                   <div key={i} className="flex justify-between items-center bg-white p-2 rounded border border-blue-100">
+                                       <span className="font-bold text-blue-800">{plan.item}</span>
+                                       <div className="text-right">
+                                           <span className="block font-bold text-brand-600">{plan.quantity}</span>
+                                           <span className="text-[10px] text-earth-400">{plan.note}</span>
+                                       </div>
+                                   </div>
+                               ))}
+                           </div>
+                       </div>
+                   )}
+
+                   {/* Recommendations */}
+                   <div>
+                      <h3 className="font-bold text-brand-900 mb-3">
+                        {mode === 'soil' ? 'Optimal Crops' : 'Preventative Measures'}
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                         {currentContent.crops.map((crop, i) => (
+                            <span key={i} className="px-3 py-1 bg-white border border-earth-200 rounded-full text-sm text-earth-700 font-medium">
+                               {crop}
+                            </span>
+                         ))}
+                      </div>
+                   </div>
+
+                   {/* Crop Rotation Scheduler Tool */}
+                   {mode === 'soil' && (
+                       <div className="mt-8 border-t-2 border-dashed border-earth-200 pt-8">
+                           <div className="flex justify-between items-center mb-6">
+                               <h3 className="text-xl font-serif font-bold text-brand-900">Step 3: Long-Term Planning</h3>
+                               <div className="flex bg-earth-200 rounded-lg p-1 text-xs font-bold">
+                                   <button onClick={() => setFarmScale('garden')} className={`px-3 py-1 rounded ${farmScale === 'garden' ? 'bg-white shadow' : ''}`}>Garden</button>
+                                   <button onClick={() => setFarmScale('farm')} className={`px-3 py-1 rounded ${farmScale === 'farm' ? 'bg-white shadow' : ''}`}>Farm</button>
+                               </div>
+                           </div>
+                           
+                           {!rotationPlan ? (
+                               <div className="bg-brand-50 p-6 rounded-xl border border-brand-100 text-center">
+                                   <Calendar className="w-12 h-12 text-brand-300 mx-auto mb-3" />
+                                   <h4 className="font-bold text-brand-900 mb-2">Generate 3-Year Crop Rotation</h4>
+                                   <p className="text-sm text-earth-600 mb-4">AI will create a schedule to naturally fix your soil issues over time.</p>
+                                   <button 
+                                     onClick={generateRotationPlan} 
+                                     disabled={isGeneratingPlan}
+                                     className="bg-brand-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-brand-700 disabled:opacity-50"
+                                   >
+                                      {isGeneratingPlan ? 'Generating Schedule...' : 'Create Plan'}
+                                   </button>
+                               </div>
+                           ) : (
+                               <div className="space-y-4">
+                                   {rotationPlan.years.map((year) => (
+                                       <div key={year.year} className="bg-white border border-earth-200 rounded-xl overflow-hidden">
+                                           <div className="bg-earth-100 px-4 py-2 flex justify-between items-center">
+                                               <span className="font-bold text-brand-900">Year {year.year}</span>
+                                               <span className="text-xs font-bold text-brand-600 uppercase tracking-wide">{year.focus}</span>
+                                           </div>
+                                           <div className="grid grid-cols-3 divide-x divide-earth-100">
+                                               {year.schedule.map((season, i) => (
+                                                   <div key={i} className="p-3 text-center">
+                                                       <div className="text-[10px] font-bold text-earth-400 uppercase mb-1">{season.season}</div>
+                                                       <div className="font-bold text-brand-800 text-sm mb-1">{season.crop}</div>
+                                                       <div className="text-[10px] text-earth-500 leading-tight">{season.benefit}</div>
+                                                   </div>
+                                               ))}
+                                           </div>
+                                       </div>
+                                   ))}
+                                   <button onClick={() => setRotationPlan(null)} className="w-full py-2 text-earth-400 hover:text-earth-600 text-xs font-bold flex items-center justify-center">
+                                       <RefreshCw className="w-3 h-3 mr-1" /> Reset Plan
+                                   </button>
+                               </div>
+                           )}
+                       </div>
+                   )}
+
                 </div>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-earth-200 rounded-xl bg-earth-50/50">
-                  <div className="bg-white p-4 rounded-full mb-4 shadow-sm">
-                    {mode === 'soil' ? <FlaskConical className="w-8 h-8 text-earth-400" /> : <Flower2 className="w-8 h-8 text-earth-400" />}
-                  </div>
-                  <p className="text-earth-500 font-bold text-lg">
-                      {language === 'hi' ? 'नमूने का इंतज़ार...' : 'Waiting for sample...'}
-                  </p>
-                  <p className="text-earth-400 text-sm mt-1 max-w-xs mx-auto">
-                      {language === 'hi' 
-                        ? 'विस्तृत रिपोर्ट देखने के लिए बाईं ओर एक छवि अपलोड करें।' 
-                        : (mode === 'soil' ? 'Upload soil image for analysis.' : 'Upload leaf/plant image for diagnosis.')}
-                  </p>
-                </div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
-
-        {/* Step 3: Crop Rotation Planner (Only appears after analysis) */}
-        {result && mode === 'soil' && (
-          <div className="mt-12 bg-white rounded-2xl shadow-xl p-8 border border-earth-100 animate-in fade-in slide-in-from-bottom-8 duration-1000">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-brand-900 flex items-center">
-                   <Calendar className="w-6 h-6 mr-2 text-brand-600" />
-                   3. Long-Term Planning: Crop Rotation
-                </h2>
-                <p className="text-earth-600 mt-2">
-                   Generate a 3-year schedule tailored to your {result.en.type} soil to naturally replenish nutrients and break pest cycles.
-                </p>
-              </div>
-              <div className="flex items-center gap-4 bg-earth-50 p-2 rounded-lg border border-earth-100">
-                 <div className="flex items-center space-x-2">
-                    <span className="text-xs font-bold text-earth-500 uppercase">Scale:</span>
-                    <select 
-                        value={farmScale} 
-                        onChange={(e) => setFarmScale(e.target.value as 'garden' | 'farm')}
-                        className="bg-white border border-earth-200 rounded px-2 py-1 text-sm font-medium"
-                    >
-                        <option value="garden">Home Garden</option>
-                        <option value="farm">Small Farm</option>
-                    </select>
+        
+        {/* History Graph Placeholder (Visual flair) */}
+        {mode === 'soil' && (
+            <div className="mt-12 opacity-50 hover:opacity-100 transition-opacity">
+                 <div className="flex items-center justify-center space-x-2 text-white/80 mb-4">
+                     <History className="w-5 h-5" />
+                     <span className="font-bold">Soil Health Timeline</span>
                  </div>
-                 <button 
-                    onClick={generateRotationPlan}
-                    disabled={isGeneratingPlan}
-                    className="bg-brand-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-brand-700 flex items-center shadow-sm disabled:opacity-50"
-                 >
-                    {isGeneratingPlan ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Sprout className="w-4 h-4 mr-2" />}
-                    {isGeneratingPlan ? 'Planning...' : 'Generate Plan'}
-                 </button>
-              </div>
+                 <div className="h-32 bg-white/10 backdrop-blur rounded-xl border border-white/20 flex items-end justify-around p-4 relative overflow-hidden">
+                      {[45, 50, 55, 52, 60, 68, 75].map((h, i) => (
+                          <div key={i} className="w-8 bg-brand-400/50 rounded-t hover:bg-brand-400 transition-colors relative group cursor-pointer" style={{ height: `${h}%` }}>
+                              <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-xs text-white opacity-0 group-hover:opacity-100">{h}</span>
+                          </div>
+                      ))}
+                      <div className="absolute inset-x-0 bottom-0 h-px bg-white/20"></div>
+                 </div>
             </div>
-
-            {rotationPlan ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {rotationPlan.years.map((yearPlan) => (
-                        <div key={yearPlan.year} className="bg-earth-50 rounded-xl border border-earth-200 overflow-hidden flex flex-col">
-                            <div className="bg-brand-900 text-white p-4">
-                                <h3 className="font-bold text-lg">Year {yearPlan.year}</h3>
-                                <div className="text-xs text-brand-200 uppercase tracking-wider font-bold mt-1">Focus: {yearPlan.focus}</div>
-                            </div>
-                            <div className="p-4 space-y-4 flex-1">
-                                {yearPlan.schedule.map((season, idx) => (
-                                    <div key={idx} className="bg-white p-3 rounded-lg border border-earth-100 shadow-sm relative pl-4">
-                                        <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-lg ${
-                                            season.season.includes('Spring') ? 'bg-green-400' : 
-                                            season.season.includes('Summer') ? 'bg-yellow-400' : 
-                                            'bg-orange-400'
-                                        }`}></div>
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="text-xs font-bold text-earth-400 uppercase">{season.season}</span>
-                                            <span className="text-[10px] bg-brand-50 text-brand-700 px-1.5 py-0.5 rounded font-bold">{season.family}</span>
-                                        </div>
-                                        <div className="font-bold text-brand-900 text-lg">{season.crop}</div>
-                                        <div className="text-xs text-earth-600 mt-1 leading-tight">{season.benefit}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="text-center py-12 bg-earth-50/50 rounded-xl border-2 border-dashed border-earth-200">
-                    <Calendar className="w-12 h-12 text-earth-300 mx-auto mb-3" />
-                    <p className="text-earth-500 font-medium">Click "Generate Plan" to create your custom schedule.</p>
-                </div>
-            )}
-          </div>
         )}
-
-        {/* Info Section */}
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-           <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-100">
-             <div className="w-12 h-12 bg-brand-100 rounded-xl flex items-center justify-center text-brand-600 mb-4">
-               <Camera className="w-6 h-6" />
-             </div>
-             <h3 className="font-bold text-brand-900 mb-2">
-                 Computer Vision
-             </h3>
-             <p className="text-earth-600 text-sm leading-relaxed">
-                 Our AI uses advanced image recognition to detect soil texture particles or subtle leaf discoloration indicative of disease.
-             </p>
-           </div>
-           <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-100">
-             <div className="w-12 h-12 bg-brand-100 rounded-xl flex items-center justify-center text-brand-600 mb-4">
-               <FlaskConical className="w-6 h-6" />
-             </div>
-             <h3 className="font-bold text-brand-900 mb-2">
-                 Organic Only
-             </h3>
-             <p className="text-earth-600 text-sm leading-relaxed">
-                 All recommendations—whether for soil amendments or pest control—are strictly organic and safe for sustainable farming.
-             </p>
-           </div>
-           <div className="bg-white p-6 rounded-xl shadow-sm border border-earth-100">
-             <div className="w-12 h-12 bg-brand-100 rounded-xl flex items-center justify-center text-brand-600 mb-4">
-               <Sprout className="w-6 h-6" />
-             </div>
-             <h3 className="font-bold text-brand-900 mb-2">
-                 Complete Care
-             </h3>
-             <p className="text-earth-600 text-sm leading-relaxed">
-                 From preparing the soil to curing sick plants, Mothercrop's AI Lab supports your farm through the entire growing season.
-             </p>
-           </div>
-        </div>
       </div>
     </div>
   );

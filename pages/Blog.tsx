@@ -14,11 +14,27 @@ export const Blog: React.FC = () => {
   const featuredPost = publishedPosts[0];
   const remainingPosts = publishedPosts.slice(1);
 
+  // Schema for the main blog page
+  const listSchema = {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "name": "Mothercrop Journal",
+      "description": "Stories from the field, recipes from the kitchen, and thoughts on the future of food.",
+      "blogPost": publishedPosts.map(post => ({
+          "@type": "BlogPosting",
+          "headline": post.title,
+          "description": post.excerpt,
+          "author": { "@type": "Person", "name": post.author },
+          "datePublished": post.date
+      }))
+  };
+
   return (
     <div className="bg-white min-h-screen pb-20 relative">
       <SEO 
         title="The Mothercrop Journal - Organic Farming Blog" 
         description="Read the latest insights on sustainable agriculture, organic recipes, and farm life from Mothercrop." 
+        schema={listSchema}
       />
 
       {/* Header */}
@@ -120,10 +136,34 @@ export const Blog: React.FC = () => {
       {/* Article Modal */}
       {selectedPost && (
         <div className="fixed inset-0 z-[60] overflow-y-auto" role="dialog" aria-modal="true">
+          {/* Dynamic SEO for Single Post */}
           <SEO 
             title={selectedPost.seo?.metaTitle || selectedPost.title} 
             description={selectedPost.seo?.metaDescription || selectedPost.excerpt} 
+            image={selectedPost.imageUrl}
+            type="article"
+            schema={{
+                "@context": "https://schema.org",
+                "@type": "BlogPosting",
+                "headline": selectedPost.title,
+                "image": [selectedPost.imageUrl],
+                "datePublished": selectedPost.date,
+                "author": {
+                  "@type": "Person",
+                  "name": selectedPost.author
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "Mothercrop",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://mothercrop.com/logo.png"
+                  }
+                },
+                "articleBody": selectedPost.content
+            }}
           />
+
           <div className="min-h-screen px-4 text-center">
             {/* Backdrop */}
             <div 

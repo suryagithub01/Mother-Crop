@@ -1,6 +1,8 @@
+
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
 import { useData } from '../store';
+import { SEO } from '../components/Layout';
 
 export const Contact: React.FC = () => {
   const { data } = useData();
@@ -19,8 +21,40 @@ export const Contact: React.FC = () => {
     setFormState({ name: '', email: '', subject: '', message: '' });
   };
 
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "name": "Mothercrop Organic Farm",
+    "image": "https://picsum.photos/id/429/800/600",
+    "telephone": contact.phone,
+    "email": contact.email,
+    "address": {
+        "@type": "PostalAddress",
+        "streetAddress": contact.address,
+        "addressLocality": contact.city,
+        "addressCountry": "US"
+    },
+    "openingHoursSpecification": {
+        "@type": "OpeningHoursSpecification",
+        "dayOfWeek": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday"
+        ],
+        "opens": "09:00",
+        "closes": "17:00"
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
+      <SEO 
+        title="Contact Us - Mothercrop Farm" 
+        description="Visit our farm or get in touch regarding CSA membership, wholesale orders, or farm tours." 
+        schema={schema}
+      />
       <div className="bg-brand-900 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl font-serif font-bold text-white mb-4">Get in Touch</h1>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Page } from './types';
 import { DataProvider, useData } from './store';
-import { Header, Footer, AiAssistant } from './components/Layout';
+import { Header, Footer, AiAssistant, ToastContainer } from './components/Layout';
 import { Home } from './pages/Home';
 import { About } from './pages/About';
 import { Services } from './pages/Services';
@@ -10,6 +10,7 @@ import { Blog } from './pages/Blog';
 import { Contact } from './pages/Contact';
 import { Admin } from './pages/Admin';
 import { SoilAnalysis } from './pages/SoilAnalysis';
+import { Knowledge } from './pages/Knowledge';
 
 const PageTracker: React.FC<{ currentPage: Page }> = ({ currentPage }) => {
     const { logPageVisit } = useData();
@@ -43,6 +44,8 @@ const AppContent: React.FC = () => {
         return <Admin onNavigate={setCurrentPage} />;
       case Page.SOIL_ANALYSIS:
         return <SoilAnalysis />;
+      case Page.KNOWLEDGE:
+        return <Knowledge />;
       default:
         return <Home onNavigate={setCurrentPage} />;
     }
@@ -51,6 +54,8 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col font-sans text-earth-900 bg-earth-50">
         <PageTracker currentPage={currentPage} />
+        <ToastContainer />
+        
         {/* Hide header on Admin page to give it a dedicated dashboard feel */}
         {currentPage !== Page.ADMIN && (
           <Header activePage={currentPage} onNavigate={setCurrentPage} />

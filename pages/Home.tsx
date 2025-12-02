@@ -22,11 +22,47 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     }
   };
 
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "name": "Mothercrop",
+        "url": window.location.origin,
+        "logo": "https://mothercrop.com/logo.png",
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+1-555-123-4567",
+          "contactType": "Customer Service",
+          "areaServed": "US",
+          "availableLanguage": "English"
+        },
+        "sameAs": [
+          "https://www.facebook.com/mothercrop",
+          "https://www.instagram.com/mothercrop",
+          "https://twitter.com/mothercrop"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "name": "Mothercrop Organic Farming",
+        "url": window.location.origin,
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": `${window.location.origin}/?q={search_term_string}`,
+          "query-input": "required name=search_term_string"
+        }
+      }
+    ]
+  };
+
   return (
     <div className="w-full">
       <SEO 
         title="Mothercrop - Premium Organic Farming & CSA" 
-        description="Fresh organic produce delivered to your door. Join our CSA membership today for sustainable, farm-to-table vegetables." 
+        description="Fresh organic produce delivered to your door. Join our CSA membership today for sustainable, farm-to-table vegetables."
+        schema={schema}
+        image={home.heroImage}
       />
       
       {/* Hero Section */}

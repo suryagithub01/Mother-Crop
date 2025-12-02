@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
 import { ShoppingBasket, Sprout, GraduationCap, CheckCircle, Leaf, Truck, X, ArrowRight } from 'lucide-react';
 import { useData } from '../store';
 import { Service, Page } from '../types';
+import { SEO } from '../components/Layout';
 
 interface ServicesProps {
   onNavigate: (page: Page) => void;
@@ -23,8 +25,43 @@ export const Services: React.FC<ServicesProps> = ({ onNavigate }) => {
     }
   };
 
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "OfferCatalog",
+    "name": "Mothercrop Organic Services",
+    "itemListElement": servicesPage.items.map((service, index) => ({
+        "@type": "Offer",
+        "itemOffered": {
+            "@type": "Service",
+            "name": service.title,
+            "description": service.description
+        },
+        "priceSpecification": {
+            "@type": "PriceSpecification",
+            "price": service.price?.replace(/[^0-9.]/g, '') || "0",
+            "priceCurrency": "USD"
+        },
+        "position": index + 1
+    }))
+  };
+
+  // Add specific schema for CSA
+  const csaSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "CSA Membership",
+    "description": servicesPage.csa.description,
+    "image": servicesPage.csa.imageUrl,
+    "brand": { "@type": "Brand", "name": "Mothercrop" }
+  };
+
   return (
     <div className="min-h-screen bg-earth-100 relative">
+      <SEO 
+        title="Services & CSA - Mothercrop" 
+        description="Join our CSA program or book a garden consultation. Fresh organic vegetables delivered weekly." 
+        schema={{ "@graph": [schema, csaSchema] }}
+      />
       <div className="bg-brand-800 py-16">
          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl font-serif font-bold text-white mb-4">{servicesPage.heroTitle}</h1>
