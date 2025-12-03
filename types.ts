@@ -66,6 +66,15 @@ export interface Subscriber {
   date: string;
 }
 
+export interface ContactMessage {
+  id: number;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  date: string;
+}
+
 export interface HomeData {
   heroTitle: string;
   heroSubtitle: string;
@@ -213,13 +222,6 @@ export interface Notification {
   type: 'success' | 'error' | 'info';
 }
 
-export interface WeatherData {
-  temp: number;
-  condition: 'Sunny' | 'Rainy' | 'Cloudy' | 'Storm';
-  humidity: number;
-  windSpeed: number;
-}
-
 export interface SiteData {
   home: HomeData;
   about: AboutData;
@@ -233,6 +235,7 @@ export interface SiteData {
   testimonials: Testimonial[];
   subscribers: Subscriber[];
   knowledgeResources: KnowledgeResource[];
+  contactMessages: ContactMessage[];
 }
 
 export enum Page {

@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { SiteData, ChatMessage, SoilAnalysisResult, SoilAnalysisRecord, Notification, WeatherData, Subscriber, KnowledgeResource } from './types';
+import { SiteData, ChatMessage, SoilAnalysisResult, SoilAnalysisRecord, Notification, Subscriber, KnowledgeResource, ContactMessage } from './types';
 
 // Default Hardcoded Data (Initial State)
 const defaultData: SiteData = {
@@ -33,6 +33,9 @@ const defaultData: SiteData = {
   subscribers: [
     { id: 1, email: "john@example.com", date: "10/01/2023" },
     { id: 2, email: "sarah.v@localchef.com", date: "10/05/2023" }
+  ],
+  contactMessages: [
+    { id: 1, name: "Alice Farm", email: "alice@farm.com", subject: "wholesale", message: "Interested in bulk carrots.", date: "10/20/2023" }
   ],
   testimonials: [
     {
@@ -309,9 +312,9 @@ interface DataContextType {
   saveChatSession: (sessionId: string, messages: ChatMessage[]) => void;
   saveSoilAnalysis: (result: SoilAnalysisResult & { location?: string }) => void;
   addSubscriber: (email: string) => void;
+  addContactMessage: (msg: Omit<ContactMessage, 'id' | 'date'>) => void;
   notifications: Notification[];
   showNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
-  getFarmWeather: () => WeatherData;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -361,6 +364,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const mergedTrafficStats = parsed.trafficStats || defaultData.trafficStats;
         const mergedSoilHistory = Array.isArray(parsed.soilLabHistory) ? parsed.soilLabHistory : defaultData.soilLabHistory;
         const mergedSubscribers = Array.isArray(parsed.subscribers) ? parsed.subscribers : defaultData.subscribers;
+        const mergedContactMessages = Array.isArray(parsed.contactMessages) ? parsed.contactMessages : defaultData.contactMessages;
         const mergedTestimonials = Array.isArray(parsed.testimonials) ? parsed.testimonials : defaultData.testimonials;
         const mergedKnowledge = Array.isArray(parsed.knowledgeResources) ? parsed.knowledgeResources : defaultData.knowledgeResources;
 
@@ -408,6 +412,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             trafficStats: mergedTrafficStats,
             soilLabHistory: mergedSoilHistory,
             subscribers: mergedSubscribers,
+            contactMessages: mergedContactMessages,
             testimonials: mergedTestimonials,
             knowledgeResources: mergedKnowledge
         };
@@ -429,8 +434,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logPageVisit = (pageName: string) => {
+    // Session-based unique visit logic
+    const sessionKey = `visited_${pageName}`;
+    if (sessionStorage.getItem(sessionKey)) {
+        return; // Already visited this session
+    }
+    sessionStorage.setItem(sessionKey, 'true');
+
     setData(prev => {
-      // Ensure trafficStats exists
       const currentStats = prev.trafficStats || {};
       return {
         ...prev,
@@ -448,7 +459,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const existingSessionIndex = history.findIndex(s => s.id === sessionId);
         const preview = messages.find(m => m.role === 'user')?.text || 'New Conversation';
         
-        // Only keep last 50 messages to prevent storage bloat in this demo
         const limitedMessages = messages.slice(-50);
         
         const newSession = { 
@@ -477,7 +487,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: (result.mode === 'plant' ? 'plant-' : 'soil-') + Date.now(),
         date: new Date().toLocaleString()
       };
-      // Keep last 50 analyses
       return { ...prev, soilLabHistory: [newRecord, ...prev.soilLabHistory].slice(0, 50) };
     });
   };
@@ -492,6 +501,20 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const addContactMessage = (msg: Omit<ContactMessage, 'id' | 'date'>) => {
+    setData(prev => {
+        const newMsg: ContactMessage = {
+            ...msg,
+            id: Date.now(),
+            date: new Date().toLocaleDateString() + ' ' + new Date().toLocaleTimeString()
+        };
+        return {
+            ...prev,
+            contactMessages: [newMsg, ...prev.contactMessages]
+        };
+    });
+  };
+
   const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     const id = Date.now();
     setNotifications(prev => [...prev, { id, message, type }]);
@@ -500,21 +523,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 4000);
   };
 
-  // Mock Weather Generator (In a real app, use OpenWeatherMap API)
-  const getFarmWeather = (): WeatherData => {
-    const conditions: Array<WeatherData['condition']> = ['Sunny', 'Cloudy', 'Rainy', 'Storm'];
-    // Randomize slightly based on day to make it feel alive but consistent for the session
-    const day = new Date().getDay(); 
-    return {
-      temp: 72,
-      condition: conditions[day % 3], // Deterministic pseudo-random
-      humidity: 45,
-      windSpeed: 12
-    };
-  };
-
   return (
-    <DataContext.Provider value={{ data, updateData, resetData, logPageVisit, saveChatSession, saveSoilAnalysis, addSubscriber, notifications, showNotification, getFarmWeather }}>
+    <DataContext.Provider value={{ data, updateData, resetData, logPageVisit, saveChatSession, saveSoilAnalysis, addSubscriber, addContactMessage, notifications, showNotification }}>
       {children}
     </DataContext.Provider>
   );

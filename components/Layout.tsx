@@ -319,9 +319,15 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             © {new Date().getFullYear()} Mothercrop. All rights reserved.
           </p>
           <div className="flex space-x-6">
-            <Instagram className="h-5 w-5 text-brand-400 hover:text-white cursor-pointer transition-colors" />
-            <Facebook className="h-5 w-5 text-brand-400 hover:text-white cursor-pointer transition-colors" />
-            <Twitter className="h-5 w-5 text-brand-400 hover:text-white cursor-pointer transition-colors" />
+            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="group">
+              <Instagram className="h-5 w-5 text-brand-400 group-hover:text-white transition-colors" />
+            </a>
+            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="group">
+              <Facebook className="h-5 w-5 text-brand-400 group-hover:text-white transition-colors" />
+            </a>
+            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="group">
+              <Twitter className="h-5 w-5 text-brand-400 group-hover:text-white transition-colors" />
+            </a>
           </div>
         </div>
       </div>

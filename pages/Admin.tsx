@@ -8,7 +8,7 @@ import {
   Globe, Save, BarChart3, MessageCircle, FlaskConical, LogOut,
   Shield, X, Eye, Flower2, Megaphone, CloudSun, Wind, Droplets, Mail,
   Sparkles, Image as ImageIcon, Database, Download, Upload as UploadIcon, FileText, Search, CheckCircle, AlertTriangle,
-  GraduationCap, RotateCcw, AlertOctagon, PlayCircle, RefreshCw
+  GraduationCap, RotateCcw, AlertOctagon, PlayCircle, RefreshCw, Inbox
 } from 'lucide-react';
 import { SEO } from '../components/Layout';
 import { GoogleGenAI } from "@google/genai";
@@ -36,7 +36,7 @@ const AccordionSection = ({ title, children, defaultOpen = false }: { title: str
 };
 
 export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
-  const { data, updateData, showNotification, getFarmWeather, resetData } = useData();
+  const { data, updateData, showNotification, resetData } = useData();
   const [activeTab, setActiveTab] = useState<Tab | null>(null);
   
   // Auth State
@@ -440,7 +440,6 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
     const trafficValues = Object.values(data.trafficStats || {}) as number[];
     const totalViews = trafficValues.reduce((a, b) => a + b, 0);
     const maxViews = Math.max(...trafficValues, 1);
-    const weather = getFarmWeather();
 
     return (
         <div className="space-y-8 animate-in fade-in">
@@ -455,30 +454,6 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-md flex items-center justify-between">
-               <div>
-                  <h3 className="font-bold text-blue-100 text-sm uppercase mb-1">Farm Weather (Live)</h3>
-                  <div className="flex items-center">
-                     <span className="text-4xl font-bold mr-3">{weather.temp}°F</span>
-                     <span className="text-xl font-medium">{weather.condition}</span>
-                  </div>
-               </div>
-               <div className="flex space-x-6 text-center">
-                  <div>
-                     <CloudSun className="w-8 h-8 mx-auto mb-1 text-blue-200" />
-                     <span className="text-xs font-bold">UV Index: High</span>
-                  </div>
-                  <div>
-                     <Droplets className="w-8 h-8 mx-auto mb-1 text-blue-200" />
-                     <span className="text-xs font-bold">{weather.humidity}% Hum</span>
-                  </div>
-                  <div>
-                     <Wind className="w-8 h-8 mx-auto mb-1 text-blue-200" />
-                     <span className="text-xs font-bold">{weather.windSpeed} mph</span>
-                  </div>
-               </div>
-            </div>
-            
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white p-6 rounded-xl border border-earth-100 shadow-sm">
                    <div className="flex items-center justify-between mb-4">
@@ -966,6 +941,38 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
                   <input value={data.contact.city} onChange={(e) => updateContact('city', e.target.value)} className="w-full border p-2 rounded" />
               </div>
           </div>
+
+          <h3 className="text-xl font-bold text-brand-900 mt-8 mb-4">Received Messages</h3>
+          <div className="bg-white rounded-xl border border-earth-200 overflow-hidden shadow-sm">
+             <table className="w-full text-left text-sm">
+                 <thead className="bg-earth-50 text-xs font-bold text-earth-500 uppercase">
+                     <tr>
+                         <th className="p-4">Date</th>
+                         <th className="p-4">Name</th>
+                         <th className="p-4">Email</th>
+                         <th className="p-4">Subject</th>
+                         <th className="p-4 w-1/3">Message</th>
+                     </tr>
+                 </thead>
+                 <tbody className="divide-y divide-earth-100">
+                     {data.contactMessages && data.contactMessages.length > 0 ? (
+                         data.contactMessages.map(msg => (
+                             <tr key={msg.id} className="hover:bg-earth-50">
+                                 <td className="p-4 text-earth-500 whitespace-nowrap">{msg.date}</td>
+                                 <td className="p-4 font-bold">{msg.name}</td>
+                                 <td className="p-4 text-brand-600">{msg.email}</td>
+                                 <td className="p-4"><span className="bg-earth-100 px-2 py-1 rounded text-xs uppercase font-bold">{msg.subject}</span></td>
+                                 <td className="p-4 text-earth-600">{msg.message}</td>
+                             </tr>
+                         ))
+                     ) : (
+                         <tr>
+                             <td colSpan={5} className="p-8 text-center text-earth-400">No messages received yet.</td>
+                         </tr>
+                     )}
+                 </tbody>
+             </table>
+          </div>
       </div>
   );
 
@@ -1066,6 +1073,33 @@ export const Admin: React.FC<AdminProps> = ({ onNavigate }) => {
   const renderMarketingTab = () => (
       <div className="space-y-6 animate-in fade-in">
           <h2 className="text-2xl font-bold text-brand-900 mb-6">Marketing & Testimonials</h2>
+          
+          {/* Newsletter Subscribers Section */}
+          <div className="mb-10">
+              <h3 className="font-bold text-brand-900 mb-4 flex items-center"><Mail className="w-5 h-5 mr-2" /> Newsletter Subscribers ({data.subscribers.length})</h3>
+              <div className="bg-white rounded-xl border border-earth-200 overflow-hidden shadow-sm max-h-60 overflow-y-auto">
+                 <table className="w-full text-left text-sm">
+                     <thead className="bg-earth-50 text-xs font-bold text-earth-500 uppercase">
+                         <tr>
+                             <th className="p-3">Date</th>
+                             <th className="p-3">Email</th>
+                         </tr>
+                     </thead>
+                     <tbody className="divide-y divide-earth-100">
+                         {data.subscribers.map(sub => (
+                             <tr key={sub.id} className="hover:bg-earth-50">
+                                 <td className="p-3 text-earth-500">{sub.date}</td>
+                                 <td className="p-3 font-medium text-brand-900">{sub.email}</td>
+                             </tr>
+                         ))}
+                         {data.subscribers.length === 0 && (
+                             <tr><td colSpan={2} className="p-4 text-center text-earth-400">No subscribers yet.</td></tr>
+                         )}
+                     </tbody>
+                 </table>
+              </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="space-y-6">
                   <div className="bg-white p-6 rounded-xl border border-earth-200 shadow-sm">

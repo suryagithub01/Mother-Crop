@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useData } from '../store';
-import { Calendar, User, X, Clock, ArrowRight, Share2, Tag } from 'lucide-react';
+import { Calendar, User, X, Clock, ArrowRight, Share2, Tag, ChevronLeft, Facebook, Twitter, Linkedin } from 'lucide-react';
 import { BlogPost } from '../types';
 import { SEO } from '../components/Layout';
 
@@ -9,10 +9,158 @@ export const Blog: React.FC = () => {
   const { data } = useData();
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
 
+  // Scroll to top when opening a post
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [selectedPost]);
+
   // Filter only published posts
   const publishedPosts = data.blog.filter(post => post.status === 'published');
   const featuredPost = publishedPosts[0];
   const remainingPosts = publishedPosts.slice(1);
+
+  // Share functionality
+  const sharePost = (platform: 'facebook' | 'twitter' | 'linkedin') => {
+    if (!selectedPost) return;
+    
+    // Construct real URLs (assuming website is deployed)
+    // For local dev, we use window.location.origin
+    const url = encodeURIComponent(`${window.location.origin}/blog/${selectedPost.slug}`);
+    const title = encodeURIComponent(selectedPost.title);
+
+    let shareUrl = '';
+    if (platform === 'facebook') {
+      shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+    } else if (platform === 'twitter') {
+      shareUrl = `https://twitter.com/intent/tweet?text=${title}&url=${url}`;
+    } else if (platform === 'linkedin') {
+      shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
+    }
+
+    window.open(shareUrl, '_blank', 'width=600,height=400');
+  };
+
+  // --- FULL POST VIEW (Page-like) ---
+  if (selectedPost) {
+    return (
+      <div className="bg-white min-h-screen">
+         {/* Dynamic SEO for Single Post */}
+         <SEO 
+            title={selectedPost.seo?.metaTitle || selectedPost.title} 
+            description={selectedPost.seo?.metaDescription || selectedPost.excerpt} 
+            image={selectedPost.imageUrl}
+            type="article"
+            schema={{
+                "@context": "https://schema.org",
+                "@type": "BlogPosting",
+                "headline": selectedPost.title,
+                "image": [selectedPost.imageUrl],
+                "datePublished": selectedPost.date,
+                "author": {
+                  "@type": "Person",
+                  "name": selectedPost.author
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "Mothercrop",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://mothercrop.com/logo.png"
+                  }
+                },
+                "articleBody": selectedPost.content
+            }}
+          />
+
+          <article className="animate-in fade-in duration-500">
+             {/* Hero Image */}
+             <div className="relative h-[60vh] w-full">
+                <img 
+                  src={selectedPost.imageUrl} 
+                  alt={selectedPost.title} 
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+                
+                {/* Back Button Overlay */}
+                <div className="absolute top-8 left-4 md:left-8 z-20">
+                    <button 
+                      onClick={() => setSelectedPost(null)}
+                      className="bg-white/20 backdrop-blur-md text-white px-4 py-2 rounded-full font-bold flex items-center hover:bg-white/30 transition-all border border-white/30 text-sm"
+                    >
+                       <ChevronLeft className="w-4 h-4 mr-2" /> Back to Journal
+                    </button>
+                </div>
+
+                {/* Title Overlay */}
+                <div className="absolute bottom-0 left-0 w-full p-6 md:p-12 lg:p-16">
+                   <div className="max-w-5xl mx-auto">
+                      <span className="px-3 py-1 bg-brand-500 text-white text-xs font-bold uppercase tracking-wide rounded-full mb-6 inline-block shadow-lg">
+                        {selectedPost.category}
+                      </span>
+                      <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-white mb-6 leading-tight drop-shadow-lg">
+                        {selectedPost.title}
+                      </h1>
+                      <div className="flex items-center text-sm font-medium text-white/90 space-x-6">
+                        <span className="flex items-center"><User className="w-4 h-4 mr-2 opacity-80" /> {selectedPost.author}</span>
+                        <span className="flex items-center"><Calendar className="w-4 h-4 mr-2 opacity-80" /> {selectedPost.date}</span>
+                        <span className="flex items-center"><Clock className="w-4 h-4 mr-2 opacity-80" /> 5 min read</span>
+                      </div>
+                   </div>
+                </div>
+             </div>
+
+             {/* Content Area */}
+             <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+                <div className="prose prose-lg prose-brand mx-auto text-earth-800 leading-relaxed whitespace-pre-line first-letter:text-5xl first-letter:font-serif first-letter:font-bold first-letter:float-left first-letter:mr-3 first-letter:text-brand-900 mb-16">
+                  {selectedPost.content}
+                </div>
+
+                {/* Tags */}
+                {selectedPost.seo.keywords && (
+                   <div className="flex flex-wrap gap-2 justify-center mb-16 border-t border-earth-100 pt-8">
+                      {selectedPost.seo.keywords.split(',').map((tag, i) => (
+                        <span key={i} className="flex items-center text-xs font-bold text-brand-600 bg-brand-50 px-4 py-2 rounded-full border border-brand-100">
+                          <Tag className="w-3 h-3 mr-2" />
+                          {tag.trim()}
+                        </span>
+                      ))}
+                   </div>
+                )}
+
+                {/* Share Section */}
+                <div className="bg-earth-50 rounded-2xl p-8 text-center">
+                   <h3 className="text-xl font-serif font-bold text-brand-900 mb-6 flex items-center justify-center">
+                      <Share2 className="w-5 h-5 mr-2" /> Share this story
+                   </h3>
+                   <div className="flex justify-center gap-4">
+                      <button 
+                        onClick={() => sharePost('facebook')}
+                        className="flex items-center px-6 py-3 bg-[#1877F2] text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-1 transition-all"
+                      >
+                         <Facebook className="w-4 h-4 mr-2" /> Facebook
+                      </button>
+                      <button 
+                        onClick={() => sharePost('twitter')}
+                        className="flex items-center px-6 py-3 bg-[#1DA1F2] text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-1 transition-all"
+                      >
+                         <Twitter className="w-4 h-4 mr-2" /> Twitter
+                      </button>
+                      <button 
+                        onClick={() => sharePost('linkedin')}
+                        className="flex items-center px-6 py-3 bg-[#0A66C2] text-white rounded-xl text-sm font-bold shadow-md hover:shadow-lg hover:-translate-y-1 transition-all"
+                      >
+                         <Linkedin className="w-4 h-4 mr-2" /> LinkedIn
+                      </button>
+                   </div>
+                </div>
+             </div>
+          </article>
+      </div>
+    );
+  }
+
+  // --- LIST VIEW ---
 
   // Schema for the main blog page
   const listSchema = {
@@ -30,7 +178,7 @@ export const Blog: React.FC = () => {
   };
 
   return (
-    <div className="bg-white min-h-screen pb-20 relative">
+    <div className="bg-white min-h-screen pb-20 relative animate-in fade-in">
       <SEO 
         title="The Mothercrop Journal - Organic Farming Blog" 
         description="Read the latest insights on sustainable agriculture, organic recipes, and farm life from Mothercrop." 
@@ -132,113 +280,6 @@ export const Blog: React.FC = () => {
           </>
         )}
       </div>
-
-      {/* Article Modal */}
-      {selectedPost && (
-        <div className="fixed inset-0 z-[60] overflow-y-auto" role="dialog" aria-modal="true">
-          {/* Dynamic SEO for Single Post */}
-          <SEO 
-            title={selectedPost.seo?.metaTitle || selectedPost.title} 
-            description={selectedPost.seo?.metaDescription || selectedPost.excerpt} 
-            image={selectedPost.imageUrl}
-            type="article"
-            schema={{
-                "@context": "https://schema.org",
-                "@type": "BlogPosting",
-                "headline": selectedPost.title,
-                "image": [selectedPost.imageUrl],
-                "datePublished": selectedPost.date,
-                "author": {
-                  "@type": "Person",
-                  "name": selectedPost.author
-                },
-                "publisher": {
-                  "@type": "Organization",
-                  "name": "Mothercrop",
-                  "logo": {
-                    "@type": "ImageObject",
-                    "url": "https://mothercrop.com/logo.png"
-                  }
-                },
-                "articleBody": selectedPost.content
-            }}
-          />
-
-          <div className="min-h-screen px-4 text-center">
-            {/* Backdrop */}
-            <div 
-              className="fixed inset-0 bg-brand-900/60 backdrop-blur-md transition-opacity" 
-              onClick={() => setSelectedPost(null)}
-            ></div>
-
-            {/* Modal Content */}
-            <span className="inline-block h-screen align-middle" aria-hidden="true">&#8203;</span>
-            <div className="inline-block w-full max-w-4xl p-0 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl relative">
-              
-              {/* Close Button */}
-              <button 
-                onClick={() => setSelectedPost(null)}
-                className="absolute top-6 right-6 z-20 p-2 bg-white/80 hover:bg-white text-earth-900 rounded-full transition-all shadow-sm"
-              >
-                <X className="w-6 h-6" />
-              </button>
-
-              {/* Header Image */}
-              <div className="h-64 sm:h-[450px] w-full relative">
-                <img 
-                  src={selectedPost.imageUrl} 
-                  alt={selectedPost.title} 
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                <div className="absolute bottom-0 left-0 p-8 sm:p-12 text-white w-full max-w-3xl">
-                  <span className="px-3 py-1 bg-brand-500 text-white text-xs font-bold uppercase tracking-wide rounded-full mb-4 inline-block shadow-lg">
-                    {selectedPost.category}
-                  </span>
-                  <h1 className="text-3xl sm:text-5xl font-serif font-bold mb-6 leading-tight drop-shadow-md">
-                    {selectedPost.title}
-                  </h1>
-                  <div className="flex items-center text-sm font-medium text-white/90 space-x-6">
-                    <span className="flex items-center"><User className="w-4 h-4 mr-2 opacity-80" /> {selectedPost.author}</span>
-                    <span className="flex items-center"><Calendar className="w-4 h-4 mr-2 opacity-80" /> {selectedPost.date}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Body Content */}
-              <div className="p-8 sm:p-16 bg-white">
-                <div className="prose prose-lg prose-brand mx-auto text-earth-800 leading-relaxed whitespace-pre-line first-letter:text-5xl first-letter:font-serif first-letter:font-bold first-letter:float-left first-letter:mr-3 first-letter:text-brand-900">
-                  {selectedPost.content}
-                </div>
-                
-                {/* Keywords/Tags */}
-                {selectedPost.seo.keywords && (
-                   <div className="mt-16 pt-8 border-t border-earth-100 flex flex-wrap gap-2 justify-center">
-                      {selectedPost.seo.keywords.split(',').map((tag, i) => (
-                        <span key={i} className="flex items-center text-xs font-bold text-brand-600 bg-brand-50 px-4 py-2 rounded-full border border-brand-100">
-                          <Tag className="w-3 h-3 mr-2" />
-                          {tag.trim()}
-                        </span>
-                      ))}
-                   </div>
-                )}
-              </div>
-
-              {/* Share Footer */}
-              <div className="bg-earth-50 p-8 flex flex-col sm:flex-row justify-between items-center border-t border-earth-100">
-                <p className="text-sm font-bold text-earth-500 mb-4 sm:mb-0 flex items-center">
-                    <Share2 className="w-4 h-4 mr-2" /> Share this story
-                </p>
-                <div className="flex gap-3">
-                   <button className="px-4 py-2 bg-[#1877F2] text-white rounded-lg text-sm font-bold shadow-sm hover:shadow-md transition-shadow">Facebook</button>
-                   <button className="px-4 py-2 bg-[#1DA1F2] text-white rounded-lg text-sm font-bold shadow-sm hover:shadow-md transition-shadow">Twitter</button>
-                   <button className="px-4 py-2 bg-[#E1306C] text-white rounded-lg text-sm font-bold shadow-sm hover:shadow-md transition-shadow">Instagram</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

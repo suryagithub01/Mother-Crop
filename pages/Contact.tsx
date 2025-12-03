@@ -5,7 +5,7 @@ import { useData } from '../store';
 import { SEO } from '../components/Layout';
 
 export const Contact: React.FC = () => {
-  const { data } = useData();
+  const { data, addContactMessage, showNotification } = useData();
   const { contact } = data;
   
   const [formState, setFormState] = useState({
@@ -17,8 +17,13 @@ export const Contact: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Thank you for reaching out! We will get back to you shortly.");
-    setFormState({ name: '', email: '', subject: '', message: '' });
+    if (formState.name && formState.email && formState.message) {
+        addContactMessage(formState);
+        showNotification("Thank you! Message received.", "success");
+        setFormState({ name: '', email: '', subject: '', message: '' });
+    } else {
+        showNotification("Please fill in all fields.", "error");
+    }
   };
 
   const schema = {

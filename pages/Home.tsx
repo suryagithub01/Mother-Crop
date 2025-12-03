@@ -2,7 +2,7 @@
 import React from 'react';
 import { Page } from '../types';
 import { useData } from '../store';
-import { ArrowRight, Leaf, Truck, Users, Star } from 'lucide-react';
+import { ArrowRight, Leaf, Truck, Users, Star, CheckCircle } from 'lucide-react';
 import { SEO } from '../components/Layout';
 
 interface HomeProps {
