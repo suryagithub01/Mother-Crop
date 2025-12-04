@@ -152,11 +152,20 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <div 
-            className="flex items-center cursor-pointer group"
+            className="flex items-center cursor-pointer"
             onClick={() => onNavigate(Page.HOME)}
           >
-            <div className="bg-brand-600 p-2 rounded-lg transition-colors shadow-sm">
-              <Leaf className="h-6 w-6 text-white" />
+            <div className="bg-brand-600 p-2 rounded-lg shadow-sm bg-opacity-100 text-opacity-100">
+              <img 
+                src="https://via.placeholder.com/40/15803d/ffffff?text=M" 
+                alt="Mothercrop Logo"
+                className="h-6 w-6 object-contain hidden"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                }} 
+              />
+              <Leaf className="h-6 w-6 text-white block" />
             </div>
             <span className="ml-3 text-xl font-bold text-brand-900 tracking-tight font-serif">Mothercrop</span>
           </div>
@@ -185,7 +194,7 @@ export const Header: React.FC<HeaderProps> = ({ activePage, onNavigate }) => {
           <div className="md:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-earth-800 hover:text-brand-700"
+              className="p-2 text-earth-800 hover:text-brand-700 bg-earth-50 rounded-md"
             >
               {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -319,10 +328,10 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             © {new Date().getFullYear()} Mothercrop. All rights reserved.
           </p>
           <div className="flex space-x-6">
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="group">
+            <a href="https://www.instagram.com/mothercrop/" target="_blank" rel="noopener noreferrer" className="group">
               <Instagram className="h-5 w-5 text-brand-400 group-hover:text-white transition-colors" />
             </a>
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="group">
+            <a href="https://www.facebook.com/mohtercrop" target="_blank" rel="noopener noreferrer" className="group">
               <Facebook className="h-5 w-5 text-brand-400 group-hover:text-white transition-colors" />
             </a>
             <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="group">
